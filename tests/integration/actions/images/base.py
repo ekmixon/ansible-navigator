@@ -68,11 +68,10 @@ class BaseClass:
             search_within_response=search_within_response,
         )
 
-        fixtures_update_requested = (
+        if fixtures_update_requested := (
             self.UPDATE_FIXTURES
             or os.environ.get("ANSIBLE_NAVIGATOR_UPDATE_TEST_FIXTURES") == "true"
-        )
-        if fixtures_update_requested:
+        ):
             update_fixtures(
                 request,
                 step.step_index,
@@ -91,7 +90,7 @@ class BaseClass:
             assert all(look_for in page for look_for in step.look_fors)
 
         if step.look_nots:
-            assert not any(look_not in page for look_not in step.look_nots)
+            assert all(look_not not in page for look_not in step.look_nots)
 
         if not any((step.look_fors, step.look_nots)):
             dir_path, file_name = fixture_path_from_request(request, step.step_index)

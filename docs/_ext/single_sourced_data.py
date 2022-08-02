@@ -85,8 +85,7 @@ def _nodes_from_rst(
 
 def _rst_generate_row(row: Tuple) -> List:
     """generate an r for an rst list table"""
-    data = []
-    data.append(RST_FIRST_ROW_ENTRY.format(row[0]))
+    data = [RST_FIRST_ROW_ENTRY.format(row[0])]
     for row_part in row[1:]:
         if isinstance(row_part, str):
             data.append(RST_ADDITONAL_ROW_ENTRY.format(row_part))
@@ -165,25 +164,22 @@ def _params_retrieve_details(filename: str) -> Dict:
 def _params_row_for_entry(entry: Entry, param_details: Dict) -> Tuple:
     # pylint: disable=too-many-branches
     """create a row entry for a param"""
-    if entry.cli_parameters is None:
-        cli_parameters = "positional"
+    if entry.cli_parameters is not None and entry.cli_parameters.short:
+        long = entry.cli_parameters.long_override or f"--{entry.name_dashed}"
+        cli_parameters = f"``{entry.cli_parameters.short}`` or ``{long}``"
     else:
-        if entry.cli_parameters.short:
-            if entry.cli_parameters.long_override:
-                long = entry.cli_parameters.long_override
-            else:
-                long = f"--{entry.name_dashed}"
-            cli_parameters = f"``{entry.cli_parameters.short}`` or ``{long}``"
-        else:
-            cli_parameters = "positional"
+        cli_parameters = "positional"
 
     path = entry.settings_file_path("ansible-navigator")
     yaml_like = ["", "      .. code-block:: yaml", ""]
-    for idx, path_part in enumerate(path.split(".")):
-        yaml_like.append(f"{(2*idx+12) * ' '}{path_part}:")
+    yaml_like.extend(
+        f"{(2*idx+12) * ' '}{path_part}:"
+        for idx, path_part in enumerate(path.split("."))
+    )
+
     yaml_like.append("")
 
-    path = entry.settings_file_path(APP) + ".default-value-override"
+    path = f"{entry.settings_file_path(APP)}.default-value-override"
     default_override = _params_get_param_file_entry(
         param_details=param_details,
         path=path,
@@ -195,11 +191,10 @@ def _params_row_for_entry(entry: Entry, param_details: Dict) -> Tuple:
     )
     if isinstance(default_override, str):
         default = default_override
+    elif entry.value.default is C.NOT_SET:
+        default = "No default value set"
     else:
-        if entry.value.default is C.NOT_SET:
-            default = "No default value set"
-        else:
-            default = entry.value.default
+        default = entry.value.default
 
     choices = oxfordcomma(entry.choices, "or")
     envvar = entry.environment_variable(APP.replace("-", "_"))
@@ -216,8 +211,7 @@ def _params_row_for_entry(entry: Entry, param_details: Dict) -> Tuple:
 
     settings.extend(["**Settings file:**", *yaml_like])
 
-    row = (entry.name_dashed, entry.short_description, tuple(settings))
-    return row
+    return entry.name_dashed, entry.short_description, tuple(settings)
 
 
 def _subcommands_generate_tables() -> List:
@@ -271,10 +265,10 @@ class AnsibleNavigatorSettingsSampleDirective(SphinxDirective):
         for idx, line in enumerate(settings):
             if idx != 2 and match(r"\s{2}\S", line):
                 sample_settings.append("    #")
-            if not any(nc in line for nc in not_commented):
-                sample_settings.append("    # " + line)
+            if all(nc not in line for nc in not_commented):
+                sample_settings.append(f"    # {line}")
             else:
-                sample_settings.append("    " + line)
+                sample_settings.append(f"    {line}")
         rst_yaml_block = "\n".join(sample_settings)
 
         return _nodes_from_rst(state=self.state, rst_source=rst_yaml_block)

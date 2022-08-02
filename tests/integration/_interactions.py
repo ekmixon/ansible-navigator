@@ -34,16 +34,22 @@ class Command(NamedTuple):
             args.append(self.subcommand)
         if isinstance(self.cmdline, str):
             args.extend(shlex.split(self.cmdline))
-        args.extend(["--ee", self.execution_environment])
-        args.extend(["--ll", self.log_level])
-        args.extend(["--mode", self.mode])
+        args.extend(
+            [
+                "--ee",
+                self.execution_environment,
+                "--ll",
+                self.log_level,
+                "--mode",
+                self.mode,
+            ]
+        )
+
         if self.pass_environment_variables:
             for envvar in self.pass_environment_variables:
                 args.extend(["--penv", envvar])
         cmd = " ".join(shlex.quote(str(arg)) for arg in args)
-        if self.preclear:
-            return "clear && " + cmd
-        return cmd
+        return f"clear && {cmd}" if self.preclear else cmd
 
 
 class Step(NamedTuple):

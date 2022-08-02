@@ -62,10 +62,7 @@ class FieldChecks:
 
     def _validate(self, response: "FieldChecks") -> Validation:
         validation = self.validator(choices=response.options)
-        if validation.error_msg:
-            self.valid = False
-        else:
-            self.valid = True
+        self.valid = not validation.error_msg
         return validation
 
     def validate(self, response: "FieldChecks") -> None:

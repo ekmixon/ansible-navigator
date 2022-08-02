@@ -82,7 +82,7 @@ class FormHandlerText(CursesWindow, Textbox):
 
         if form_field.response is not unknown:
             clp = CursesLinePart(0, form_field.response, 0, 0)
-            self._add_line(self.win, 0, tuple([clp]))
+            self._add_line(self.win, 0, (clp, ))
         else:
             self.win.move(0, 0)
 

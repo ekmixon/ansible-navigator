@@ -83,13 +83,15 @@ class TmuxSession:
         self.cli_prompt = self._get_cli_prompt()
 
         # set environment variables for this session
-        tmux_common = [f". {venv}"]
-        tmux_common.append("export TERM=xterm")
-        tmux_common.append("export LANG=en_US.UTF-8")
-        tmux_common.append(f"export HOME='{home}'")
-        tmux_common.append(f"export USER='{user}'")
-        tmux_common.append(f"export ANSIBLE_NAVIGATOR_CONFIG='{self._config_path}'")
-        tmux_common.append("export ANSIBLE_NAVIGATOR_LOG_LEVEL=debug")
+        tmux_common = [
+            f". {venv}",
+            "export TERM=xterm",
+            "export LANG=en_US.UTF-8",
+            f"export HOME='{home}'",
+            f"export USER='{user}'",
+            f"export ANSIBLE_NAVIGATOR_CONFIG='{self._config_path}'",
+            "export ANSIBLE_NAVIGATOR_LOG_LEVEL=debug",
+        ]
 
         log_file = os.path.join(self._test_log_dir, "ansible-navigator.log")
         tmux_common.append(f"export ANSIBLE_NAVIGATOR_LOG_FILE='{log_file}'")
@@ -101,8 +103,9 @@ class TmuxSession:
         tmux_common.append(
             f"export ANSIBLE_NAVIGATOR_COLLECTION_DOC_CACHE_PATH='{collection_doc_cache}'"
         )
-        tmux_common.append(f"export ANSIBLE_NAVIGATOR_PULL_POLICY='{self._pull_policy}'")
-        tmux_common.append("env")
+        tmux_common.extend(
+            (f"export ANSIBLE_NAVIGATOR_PULL_POLICY='{self._pull_policy}'", "env")
+        )
 
         set_up_commands = tmux_common + self._setup_commands
         set_up_command = " && ".join(set_up_commands)
@@ -112,11 +115,7 @@ class TmuxSession:
         self._pane.send_keys(set_up_command)
         prompt_showing = False
         while True:
-            showing = self._pane.capture_pane()
-            # find the prompt in the last line of a full screen
-            # or at least a screen as big as the list of environment variables
-            # because the environment variables were dumped
-            if showing:
+            if showing := self._pane.capture_pane():
                 prompt_showing = self.cli_prompt in showing[-1] and len(showing) > min(
                     len(tmux_common), int(self._pane_height) - 1
                 )
@@ -138,9 +137,7 @@ class TmuxSession:
         self._pane.send_keys("clear")
         prompt_showing = False
         while True:
-            showing = self._pane.capture_pane()
-            # the screen has been cleared, wait for prompt in first line
-            if showing:
+            if showing := self._pane.capture_pane():
                 prompt_showing = self.cli_prompt in showing[0]
             if prompt_showing:
                 break
@@ -184,11 +181,7 @@ class TmuxSession:
         while True:
             showing = self._pane.capture_pane()
             if showing:
-                if self.cli_prompt in showing[-1]:
-                    mode = "shell"
-                else:
-                    mode = "app"
-
+                mode = "shell" if self.cli_prompt in showing[-1] else "app"
             if mode is not None:
                 break
 
@@ -274,9 +267,10 @@ class TmuxSession:
                 tstamp = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
                 # taint the screen output w/ timestamp so it's never a valid fixture
                 alerts = [
-                    f"******** ERROR: TMUX '{err_message}' TIMEOUT @ {elapsed}s @ {tstamp} ********"
+                    f"******** ERROR: TMUX '{err_message}' TIMEOUT @ {elapsed}s @ {tstamp} ********",
+                    f"******** Captured to: {timeout_capture_path}",
                 ]
-                alerts.append(f"******** Captured to: {timeout_capture_path}")
+
                 showing = alerts + showing
                 with open(file=timeout_capture_path, mode="w", encoding="utf-8") as filehandle:
                     filehandle.writelines("\n".join(showing))

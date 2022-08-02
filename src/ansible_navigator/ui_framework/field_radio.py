@@ -53,10 +53,7 @@ class FieldRadio:
 
     def _validate(self, response: "FieldRadio") -> Validation:
         validation = self.validator(choices=response.options)
-        if validation.error_msg:
-            self.valid = False
-        else:
-            self.valid = True
+        self.valid = not validation.error_msg
         return validation
 
     def validate(self, response: "FieldRadio") -> None:

@@ -110,10 +110,13 @@ class ImagePuller:
 
     def prologue_stdout(self):
         """print a little value added information"""
-        messages = [("Execution environment image name:", self._image)]
-        messages.append(("Execution environment image tag:", self._image_tag))
-        messages.append(("Execution environment pull policy:", self._pull_policy))
-        messages.append(("Execution environment pull needed:", self._pull_required))
+        messages = [
+            ("Execution environment image name:", self._image),
+            ("Execution environment image tag:", self._image_tag),
+            ("Execution environment pull policy:", self._pull_policy),
+            ("Execution environment pull needed:", self._pull_required),
+        ]
+
         width = max((len(m[0]) + len(str(m[1])) + 2 for m in messages))
         print("\u002d" * width)
         print("Execution environment image and pull policy overview")

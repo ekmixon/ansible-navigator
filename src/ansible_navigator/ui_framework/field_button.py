@@ -33,10 +33,7 @@ class FieldButton:
     def validate(self, response: "FieldButton") -> None:
         """validate this instance"""
         validation = self.validator(response)
-        if validation.error_msg:
-            self.disabled = True
-        else:
-            self.disabled = False
+        self.disabled = bool(validation.error_msg)
 
     def conditional_validation(self, response: "FieldButton") -> None:
         """conditional validation used for

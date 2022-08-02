@@ -34,10 +34,12 @@ def filter_content_keys(obj: Dict[Any, Any]) -> Dict[Any, Any]:
         working = [filter_content_keys(x) for x in obj]
         return working
     if isinstance(obj, dict):
-        working = {}
-        for k, val in obj.items():
-            if not k.startswith("__"):
-                working[k] = filter_content_keys(val)
+        working = {
+            k: filter_content_keys(val)
+            for k, val in obj.items()
+            if not k.startswith("__")
+        }
+
         return working
     return obj
 
@@ -87,7 +89,7 @@ class Action(App):
                 self.steps.previous.selected["image_name"]
                 + f" ({self.steps.previous.selected['description']})"
             )
-        elif name in ["python_package_list", "system_package_list"]:
+        elif name in {"python_package_list", "system_package_list"}:
             text = f"{obj['name']} ({obj['version']})"
 
         color = 2
@@ -99,7 +101,7 @@ class Action(App):
 
         empty_str = " " * (screen_w - len(text) + 1)
         heading_str = (text + empty_str).upper()
-        heading = (
+        return (
             (
                 CursesLinePart(
                     column=0,
@@ -109,7 +111,6 @@ class Action(App):
                 ),
             ),
         )
-        return heading
 
     def run(self, interaction: Interaction, app: AppPublic) -> Union[Interaction, None]:
         """Handle :images
@@ -134,9 +135,10 @@ class Action(App):
         self._collect_image_list()
         if not self._images.value:
             messages = [
-                "No images were found, or the configured container engine was not available."
+                "No images were found, or the configured container engine was not available.",
+                "Please check the log (:log) for errors.",
             ]
-            messages.append("Please check the log (:log) for errors.")
+
             warning = warning_notification(messages=messages)
             interaction.ui.show(warning)
             self._logger.error(messages[0])
@@ -368,7 +370,7 @@ class Action(App):
         }
 
         if isinstance(self._args.container_options, list):
-            kwargs.update({"container_options": self._args.container_options})
+            kwargs["container_options"] = self._args.container_options
 
         self._logger.debug(
             f"Invoke runner with executable_cmd: {python_exec_path}" + f" and kwargs: {kwargs}"
@@ -384,8 +386,10 @@ class Action(App):
         parsed = self._parse(output)
         if parsed is None:
             self._logger.error(
-                "Image introspection failed (parsed), the return value was: %s", output[0:1000]
+                "Image introspection failed (parsed), the return value was: %s",
+                output[:1000],
             )
+
             self.notify_failed()
             return False
 
@@ -405,8 +409,10 @@ class Action(App):
             self._images.selected["system"] = parsed["system_packages"]
         except KeyError:
             self._logger.exception(
-                "Image introspection failed (keys), the return value was: %s", output[0:1000]
+                "Image introspection failed (keys), the return value was: %s",
+                output[:1000],
             )
+
             self.notify_failed()
             return False
         return True
@@ -434,8 +440,11 @@ class Action(App):
 
     def notify_failed(self):
         """notify introspection failed"""
-        msgs = ["humph. Something went really wrong while introspecting the image."]
-        msgs.append("Details have been added to the log file")
+        msgs = [
+            "humph. Something went really wrong while introspecting the image.",
+            "Details have been added to the log file",
+        ]
+
         closing = ["[HINT] Please log an issue about this one, it shouldn't have happened"]
         warning = warning_notification(messages=msgs + closing)
         self._interaction.ui.show(warning)

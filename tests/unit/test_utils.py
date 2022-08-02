@@ -18,8 +18,10 @@ def test_find_many_settings_home(monkeypatch) -> None:
     """test more than one in home"""
 
     paths = [
-        os.path.join(os.path.expanduser("~"), ".ansible-navigator" + ext) for ext in EXTENSIONS
+        os.path.join(os.path.expanduser("~"), f".ansible-navigator{ext}")
+        for ext in EXTENSIONS
     ]
+
 
     def check_path_exists(arg):
         return arg in paths
@@ -33,7 +35,11 @@ def test_find_many_settings_home(monkeypatch) -> None:
 def test_find_many_settings_cwd(monkeypatch) -> None:
     """test more than one in CWD"""
 
-    paths = [os.path.join(os.getcwd(), "ansible-navigator" + ext) for ext in EXTENSIONS]
+    paths = [
+        os.path.join(os.getcwd(), f"ansible-navigator{ext}")
+        for ext in EXTENSIONS
+    ]
+
 
     def check_path_exists(arg):
         return arg in paths

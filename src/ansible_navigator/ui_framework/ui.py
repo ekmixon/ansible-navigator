@@ -226,7 +226,7 @@ class UserInterface(CursesWindow):
         :return: A tuple of available functions
         :rtype: Ui
         """
-        res = Ui(
+        return Ui(
             clear=self.clear,
             menu_filter=self.menu_filter,
             scroll=self.scroll,
@@ -234,7 +234,6 @@ class UserInterface(CursesWindow):
             update_status=self.update_status,
             xform=self.xform,
         )
-        return res
 
     def _footer(self, key_dict: dict) -> CursesLine:
         """build a footer from the key dict
@@ -246,40 +245,37 @@ class UserInterface(CursesWindow):
         :rtype: CursesLine
         """
         colws = [len(f"{str(k)}: {str(v)}") for k, v in key_dict.items()]
-        if self._status:
-            status_width = self._pbar_width
-        else:
-            status_width = 0
+        status_width = self._pbar_width if self._status else 0
         gap = floor((self._screen_w - status_width - sum(colws)) / len(key_dict))
         adj_colws = [c + gap for c in colws]
         col_starts = [0]
-        for idx, colw in enumerate(adj_colws):
-            col_starts.append(colw + col_starts[idx])
+        col_starts.extend(colw + col_starts[idx] for idx, colw in enumerate(adj_colws))
         footer = []
         for idx, key in enumerate(key_dict):
-            left = key[0 : adj_colws[idx]]
+            left = key[:adj_colws[idx]]
             right = f" {key_dict[key]}"
-            right = right[0 : adj_colws[idx] - len(key)]
-            footer.append(
-                CursesLinePart(
-                    column=col_starts[idx],
-                    string=left,
-                    color=0,
-                    decoration=curses.A_REVERSE,
+            right = right[:adj_colws[idx] - len(key)]
+            footer.extend(
+                (
+                    CursesLinePart(
+                        column=col_starts[idx],
+                        string=left,
+                        color=0,
+                        decoration=curses.A_REVERSE,
+                    ),
+                    CursesLinePart(
+                        column=col_starts[idx] + len(left),
+                        string=right,
+                        color=0,
+                        decoration=0,
+                    ),
                 )
             )
-            footer.append(
-                CursesLinePart(
-                    column=col_starts[idx] + len(left),
-                    string=right,
-                    color=0,
-                    decoration=0,
-                )
-            )
+
         if self._status:
             # place the status to the far right -1 for the scrollbar
             # center place the uneven extra on the right, so flip it twice
-            status = self._status[0 : self._status_width - 1]  # max
+            status = self._status[:self._status_width - 1]
             status = status[::-1]  # reverse
             status = status.center(self._status_width)  # pad
             status = status[::-1]  # reverse
@@ -322,7 +318,7 @@ class UserInterface(CursesWindow):
             self._add_line(
                 window=self._screen,
                 lineno=min(lineno, viewport_h + len_heading),
-                line=tuple([line_part]),
+                line=(line_part,),
             )
 
     def _get_input_line(self) -> str:
@@ -335,7 +331,7 @@ class UserInterface(CursesWindow):
         form_field = FieldText(name="one_line", prompt="")
         clp = CursesLinePart(column=0, string=":", color=0, decoration=0)
         input_at = self._screen_h - 1  # screen y is zero based
-        self._add_line(window=self._screen, lineno=input_at, line=tuple([clp]))
+        self._add_line(window=self._screen, lineno=input_at, line=(clp, ))
         self._screen.refresh()
         self._one_line_input.win = curses.newwin(1, self._screen_w, input_at, 1)
         self._one_line_input.win.keypad(True)
@@ -389,7 +385,7 @@ class UserInterface(CursesWindow):
 
         index_width = len(str(count))
 
-        keypad = set(str(x) for x in range(0, 10))
+        keypad = {str(x) for x in range(10)}
         other_valid_keys = ["+", "-", "_", "KEY_F(5)", "^[", "\x1b"]
 
         while True:
@@ -472,28 +468,32 @@ class UserInterface(CursesWindow):
         :return: The name and matching action or not
         :rtype: str, Action or None, None
         """
-        if not entry.startswith("{{"):  # don't match pure template
-            if "{{" in entry and "}}" in entry:
-                if isinstance(current, Mapping):
-                    template_vars = current
-                    type_msgs = []
-                else:
-                    template_vars = {"this": current}
-                    type_msgs = ["Current content passed for templating is not a dictionary."]
-                    type_msgs.append("[HINT] Use 'this' to reference it (e.g. {{ this[0] }}")
-                errors, entry = templar(entry, template_vars)
-                if errors:
-                    msgs = ["Errors encountered while templating input"] + errors
-                    msgs.extend(type_msgs)
-                    self._show_form(warning_notification(msgs))
-                    return None, None
+        if not entry.startswith("{{") and "{{" in entry and "}}" in entry:
+            if isinstance(current, Mapping):
+                template_vars = current
+                type_msgs = []
+            else:
+                template_vars = {"this": current}
+                type_msgs = [
+                    "Current content passed for templating is not a dictionary.",
+                    "[HINT] Use 'this' to reference it (e.g. {{ this[0] }}",
+                ]
+
+            errors, entry = templar(entry, template_vars)
+            if errors:
+                msgs = ["Errors encountered while templating input"] + errors
+                msgs.extend(type_msgs)
+                self._show_form(warning_notification(msgs))
+                return None, None
         for kegex in self._kegexes():
-            match = kegex.kegex.match(entry)
-            if match:
+            if match := kegex.kegex.match(entry):
                 return kegex.name, Action(match=match, value=entry)
 
-        msgs = [f"Could not find a match for ':{entry}'"]
-        msgs.append("[HINT] Try ':help' for a list of available commands.")
+        msgs = [
+            f"Could not find a match for ':{entry}'",
+            "[HINT] Try ':help' for a list of available commands.",
+        ]
+
         self._show_form(warning_notification(msgs))
         return None, None
 
@@ -515,10 +515,7 @@ class UserInterface(CursesWindow):
         else:
             string = obj
 
-        scope = "no_color"
-        if self._ui_config.color:
-            scope = self.xform()
-
+        scope = self.xform() if self._ui_config.color else "no_color"
         rendered = self._colorizer.render(doc=string, scope=scope)
         return self._color_lines_for_term(rendered)
 
@@ -536,17 +533,24 @@ class UserInterface(CursesWindow):
         """
         if curses.COLORS > 16 and self._term_osc4_supprt:
             unique_colors = list(
-                set(chars["color"] for line in lines for chars in line if chars["color"])
+                {
+                    chars["color"]
+                    for line in lines
+                    for chars in line
+                    if chars["color"]
+                }
             )
+
+            scale = 1000 / 255
             # start custom colors at 16
             for color in unique_colors:
-                scale = 1000 / 255
                 red, green, blue = color
                 if color not in self._rgb_to_curses_color_idx:
-                    if not self._rgb_to_curses_color_idx:
-                        curses_colors_idx = 16
-                    else:
-                        curses_colors_idx = max(self._rgb_to_curses_color_idx.values()) + 1
+                    curses_colors_idx = (
+                        max(self._rgb_to_curses_color_idx.values()) + 1
+                        if self._rgb_to_curses_color_idx
+                        else 16
+                    )
 
                     self._rgb_to_curses_color_idx[color] = curses_colors_idx
                     curses.init_color(
@@ -558,8 +562,7 @@ class UserInterface(CursesWindow):
                         curses.color_content(curses_colors_idx),
                     )
                     curses.init_pair(curses_colors_idx, curses_colors_idx, -1)
-        colored_lines = self._colored_lines(lines)
-        return colored_lines
+        return self._colored_lines(lines)
 
     def _colored_lines(self, lines: List[List[Dict]]) -> CursesLines:
         """color each of the lines
@@ -617,8 +620,7 @@ class UserInterface(CursesWindow):
         return heading, lines
 
     def _show_form(self, obj: Form) -> Form:
-        res = obj.present(screen=self._screen, ui_config=self._ui_config)
-        return res
+        return obj.present(screen=self._screen, ui_config=self._ui_config)
 
     def _show_obj_from_list(self, objs: List[Any], index: int, await_input: bool) -> Interaction:
         # pylint: disable=too-many-arguments
@@ -633,13 +635,10 @@ class UserInterface(CursesWindow):
         :rtype: Interaction
         """
         heading, lines = self._filter_and_serialize(objs[index])
-        while True:
-            if heading is not None:
-                heading_len = len(heading)
-            else:
-                heading_len = 0
-            footer_len = 1
+        footer_len = 1
 
+        while True:
+            heading_len = len(heading) if heading is not None else 0
             if self.scroll() == 0:
                 last_line_idx = min(len(lines) - 1, self._screen_h - heading_len - footer_len - 1)
             else:
@@ -681,8 +680,7 @@ class UserInterface(CursesWindow):
                 less = list(reversed([i for i in self._menu_indicies if i - index < 0]))
                 more = list(reversed([i for i in self._menu_indicies if i - index > 0]))
 
-                ordered_indicies = less + more
-                if ordered_indicies:
+                if ordered_indicies := less + more:
                     index = ordered_indicies[0]
                     self.scroll(0)
                     entry = "KEY_F(5)"
@@ -692,8 +690,7 @@ class UserInterface(CursesWindow):
                 more = [i for i in self._menu_indicies if i - index > 0]
                 less = [i for i in self._menu_indicies if i - index < 0]
 
-                ordered_indicies = more + less
-                if ordered_indicies:
+                if ordered_indicies := more + less:
                     index = ordered_indicies[0]
                     self.scroll(0)
                     entry = "KEY_F(5)"
@@ -726,10 +723,7 @@ class UserInterface(CursesWindow):
         :return: True if a match else False
         :rtype: bool
         """
-        for key in columns:
-            if self._search_value(self.menu_filter(), obj[key]):
-                return True
-        return False
+        return any(self._search_value(self.menu_filter(), obj[key]) for key in columns)
 
     @staticmethod
     @lru_cache(maxsize=None)
@@ -744,7 +738,7 @@ class UserInterface(CursesWindow):
         :return: the match if made
         :rtype: Match or None
         """
-        return regex.search(str(value))
+        return regex.search(value)
 
     def _get_heading_menu_items(
         self, current: List, columns: List, indices
@@ -856,13 +850,11 @@ class UserInterface(CursesWindow):
         self.xform(xform or self._default_obj_serialization)
 
         if isinstance(obj, Form):
-            form_result = self._show_form(obj)
-            return form_result
+            return self._show_form(obj)
 
         if index is not None and isinstance(obj, list):
-            result = self._show_obj_from_list(obj, index, await_input)
+            return self._show_obj_from_list(obj, index, await_input)
         elif columns and isinstance(obj, list):
-            result = self._show_menu(obj, columns, await_input)
+            return self._show_menu(obj, columns, await_input)
         else:
-            result = self._show_obj_from_list([obj], 0, await_input)
-        return result
+            return self._show_obj_from_list([obj], 0, await_input)

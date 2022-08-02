@@ -12,10 +12,7 @@ from .. import defaults
 
 def get_executable_path(name):
     """get the path of an executable"""
-    if name == "python":
-        exec_path = sys.executable
-    else:
-        exec_path = shutil.which(name)
+    exec_path = sys.executable if name == "python" else shutil.which(name)
     if not exec_path:
         raise ValueError(f"{name} executable not found")
     return exec_path
@@ -112,11 +109,7 @@ def copytree(src, dst, symlinks=False, ignore=None, dirs_exist_ok=False):
     not be copied.
     """
     names = os.listdir(src)
-    if ignore is not None:
-        ignored_names = ignore(src, names)
-    else:
-        ignored_names = set()
-
+    ignored_names = ignore(src, names) if ignore is not None else set()
     os.makedirs(dst, exist_ok=dirs_exist_ok)
     errors = []
     for name in names:

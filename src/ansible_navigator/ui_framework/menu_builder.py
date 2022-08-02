@@ -57,9 +57,10 @@ class MenuBuilder:
 
         lines = [[str(dicts[idx].get(c)) for c in cols] for idx in indices]
         colws = [
-            max([len(str(v)) for v in c])
+            max(len(str(v)) for v in c)
             for c in zip(*lines + [[re.sub("^__", "", col) for col in cols]])
         ]
+
         # add a space
         colws = [c + 1 for c in colws]
 
@@ -67,15 +68,13 @@ class MenuBuilder:
         adj_colws = distribute(available, colws)
 
         col_starts = [0]
-        for idx, colw in enumerate(adj_colws):
-            col_starts.append(colw + col_starts[idx])
-
-        menu_layout = tuple([col_starts, cols, adj_colws])
+        col_starts.extend(colw + col_starts[idx] for idx, colw in enumerate(adj_colws))
+        menu_layout = col_starts, cols, adj_colws
         header = self._menu_header_line(menu_layout)
 
-        menu_layout = tuple([col_starts, cols, adj_colws, header])
+        menu_layout = col_starts, cols, adj_colws, header
         menu_lines = self._menu_lines(dicts, menu_layout, indices)
-        return tuple([header]), menu_lines
+        return (header, ), menu_lines
 
     def _menu_header_line(self, menu_layout: Tuple[List, ...]) -> CursesLine:
         """Generate the menu header line
@@ -111,7 +110,7 @@ class MenuBuilder:
         col_starts, cols, adj_colws = menu_layout
         coltext = re.sub("^__", "", cols[colno])
         coltext = re.sub("_", " ", coltext)
-        adj_entry = coltext[0 : adj_colws[colno]].upper()
+        adj_entry = coltext[:adj_colws[colno]].upper()
         # right justify header if progress
         if cols[colno] == "__progress":
             return CursesLinePart(
@@ -188,7 +187,7 @@ class MenuBuilder:
 
         color, decoration = self._color_menu_item(colno, cols[colno], dyct)
 
-        text = str(coltext)[0 : adj_colws[colno]]
+        text = str(coltext)[:adj_colws[colno]]
         if (isinstance(coltext, (int, bool, float)) and not isinstance(coltext, enum.Enum)) or cols[
             colno
         ].lower() == "__duration":

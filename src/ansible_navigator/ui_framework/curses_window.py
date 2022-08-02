@@ -131,7 +131,7 @@ class CursesWindow:
             for line_part in line:
                 column = line_part.column + len(prefix or "")
                 if column <= self._screen_w:
-                    text = line_part.string[0 : self._screen_w - column + 1]
+                    text = line_part.string[:self._screen_w - column + 1]
                     try:
                         color = self._color_pair_or_none(line_part.color)
                         if color is None:
@@ -143,10 +143,10 @@ class CursesWindow:
                         # because it still draws it
                         # https://stackoverflow.com/questions/10877469/
                         # ncurses-setting-last-character-on-screen-without-scrolling-enabled
-                        if lineno == win.getyx()[0] and column + len(text) == win.getyx()[1] + 1:
-                            pass
-
-                        else:
+                        if (
+                            lineno != win.getyx()[0]
+                            or column + len(text) != win.getyx()[1] + 1
+                        ):
                             self._logger.debug("curses error")
                             self._logger.debug("screen_h: %s, lineno: %s", self._screen_h, lineno)
                             self._logger.debug(
@@ -197,6 +197,6 @@ class CursesWindow:
         else:
             self._logger.debug("Using terminal defaults")
 
-        for i in range(0, curses.COLORS):
+        for i in range(curses.COLORS):
             curses.init_pair(i, i, -1)
         self._ui_config.colors_initialized = True

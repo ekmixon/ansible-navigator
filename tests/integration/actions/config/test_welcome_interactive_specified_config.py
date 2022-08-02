@@ -1,5 +1,6 @@
 """Tests for ``config`` from welcome, interactive, specify configuration.
 """
+
 import pytest
 
 from .base import CONFIG_FIXTURE
@@ -23,13 +24,14 @@ steps = (
     ),
     Step(user_input=":back", comment="return to welcome screen"),
     Step(
-        user_input=":config -c " + CONFIG_FIXTURE,
+        user_input=f":config -c {CONFIG_FIXTURE}",
         comment="enter config from welcome screen, custom config, (no ee)",
         mask=False,
         look_nots=["/home/runner"],
         look_fors=["YAML_FILENAME_EXTENSIONS", "['.yahmool']"],
     ),
 )
+
 
 steps = add_indicies(steps)
 

@@ -68,13 +68,12 @@ class Action:
 
         if isinstance(obj, str):
             write_as = "text"
+        elif re.match(r"^.*\.y(?:a)?ml$", filename):
+            write_as = "yaml"
+        elif filename.endswith(".json"):
+            write_as = "json"
         else:
-            if re.match(r"^.*\.y(?:a)?ml$", filename):
-                write_as = "yaml"
-            elif filename.endswith(".json"):
-                write_as = "json"
-            else:
-                write_as = interaction.ui.xform()
+            write_as = interaction.ui.xform()
 
         if write_as == "text":
             with open(os.path.abspath(filename), fmode, encoding="utf-8") as outfile:

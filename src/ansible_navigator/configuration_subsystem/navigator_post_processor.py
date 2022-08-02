@@ -207,12 +207,11 @@ class NavigatorPostProcessor:
     @_post_processor
     def display_color(self, entry: Entry, config: ApplicationConfiguration) -> PostProcessorReturn:
         """Post process displacy_color"""
-        messages: List[LogMessage] = []
-        exit_messages: List[ExitMessage] = []
         if entry.value.source == C.ENVIRONMENT_VARIABLE:
             entry.value.current = False
             message = f"{entry.environment_variable()} was set, set to {entry.value.current}"
-            messages.append(LogMessage(level=logging.INFO, message=message))
+            messages: List[LogMessage] = [LogMessage(level=logging.INFO, message=message)]
+            exit_messages: List[ExitMessage] = []
             return messages, exit_messages
         return self._true_or_false(entry, config)
 
@@ -401,21 +400,27 @@ class NavigatorPostProcessor:
         # pylint: disable=unused-argument
         """Post process help_config"""
         messages, exit_messages = self._true_or_false(entry, config)
-        if all((entry.value.current is True, config.app == "config", config.mode == "interactive")):
-            if entry.cli_parameters:
-                long_hc = entry.cli_parameters.long_override or entry.name_dashed
-                exit_msg = (
-                    f"{entry.cli_parameters.short} or --{long_hc}"
-                    " is valid only when 'mode' argument is set to 'stdout'"
+        if (
+            all(
+                (
+                    entry.value.current is True,
+                    config.app == "config",
+                    config.mode == "interactive",
                 )
-                exit_messages.append(ExitMessage(message=exit_msg))
-                mode_cli = config.entry("mode").cli_parameters
-                if mode_cli:
-                    m_short = mode_cli.short
-                    if m_short:
-                        exit_msg = f"Try again with '{m_short} stdout'"
-                        exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
-                return messages, exit_messages
+            )
+            and entry.cli_parameters
+        ):
+            long_hc = entry.cli_parameters.long_override or entry.name_dashed
+            exit_msg = (
+                f"{entry.cli_parameters.short} or --{long_hc}"
+                " is valid only when 'mode' argument is set to 'stdout'"
+            )
+            exit_messages.append(ExitMessage(message=exit_msg))
+            if mode_cli := config.entry("mode").cli_parameters:
+                if m_short := mode_cli.short:
+                    exit_msg = f"Try again with '{m_short} stdout'"
+                    exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
+            return messages, exit_messages
         return messages, exit_messages
 
     @_post_processor
@@ -431,10 +436,8 @@ class NavigatorPostProcessor:
                     " is valid only when 'mode' argument is set to 'stdout'"
                 )
                 exit_messages.append(ExitMessage(message=exit_msg))
-                mode_cli = config.entry("mode").cli_parameters
-                if mode_cli:
-                    m_short = mode_cli.short
-                    if m_short:
+                if mode_cli := config.entry("mode").cli_parameters:
+                    if m_short := mode_cli.short:
                         exit_msg = f"Try again with '{m_short} stdout'"
                         exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
             return messages, exit_messages
@@ -455,10 +458,8 @@ class NavigatorPostProcessor:
                     " is valid only when 'mode' argument is set to 'stdout'"
                 )
                 exit_messages.append(ExitMessage(message=exit_msg))
-                mode_cli = config.entry("mode").cli_parameters
-                if mode_cli:
-                    m_short = mode_cli.short
-                    if m_short:
+                if mode_cli := config.entry("mode").cli_parameters:
+                    if m_short := mode_cli.short:
                         exit_msg = f"Try again with '{m_short} stdout'"
                         exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
             return messages, exit_messages
@@ -477,10 +478,8 @@ class NavigatorPostProcessor:
                     " is valid only when 'mode' argument is set to 'stdout'"
                 )
                 exit_messages.append(ExitMessage(message=exit_msg))
-                mode_cli = config.entry("mode").cli_parameters
-                if mode_cli:
-                    m_short = mode_cli.short
-                    if m_short:
+                if mode_cli := config.entry("mode").cli_parameters:
+                    if m_short := mode_cli.short:
                         exit_msg = f"Try again with '{m_short} stdout'"
                         exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
             return messages, exit_messages
@@ -492,17 +491,20 @@ class NavigatorPostProcessor:
         """Post process inventory"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if config.app == "inventory" and entry.value.current is C.NOT_SET:
-            if not (
+        if (
+            config.app == "inventory"
+            and entry.value.current is C.NOT_SET
+            and not (
                 config.entry("help_inventory").value.current
                 and config.entry("mode").value.current == "stdout"
-            ):
-                exit_msg = "An inventory is required when using the inventory subcommand"
-                exit_messages.append(ExitMessage(message=exit_msg))
-                if entry.cli_parameters:
-                    exit_msg = f"Try again with '{entry.cli_parameters.short} <path to inventory>'"
-                    exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
-                return messages, exit_messages
+            )
+        ):
+            exit_msg = "An inventory is required when using the inventory subcommand"
+            exit_messages.append(ExitMessage(message=exit_msg))
+            if entry.cli_parameters:
+                exit_msg = f"Try again with '{entry.cli_parameters.short} <path to inventory>'"
+                exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
+            return messages, exit_messages
         if entry.value.current is not C.NOT_SET:
             flattened = flatten_list(entry.value.current)
             entry.value.current = []
@@ -547,14 +549,13 @@ class NavigatorPostProcessor:
         try:
             os.makedirs(os.path.dirname(entry.value.current), exist_ok=True)
             Path(entry.value.current).touch()
-        except (IOError, OSError, FileNotFoundError) as exc:
+        except (IOError, OSError) as exc:
             exit_msgs = [
-                (
-                    f"Failed to create log file {entry.value.current}"
-                    f" specified in '{entry.value.source.value}'"
-                )
+                f"Failed to create log file {entry.value.current}"
+                f" specified in '{entry.value.source.value}'",
+                f"The error was: {str(exc)}",
             ]
-            exit_msgs.append(f"The error was: {str(exc)}")
+
             exit_messages.extend(ExitMessage(message=exit_msg) for exit_msg in exit_msgs)
             entry.value.current = entry.value.default
             entry.value.source = C.DEFAULT_CFG
@@ -630,8 +631,7 @@ class NavigatorPostProcessor:
             exit_msg = f"Subcommand '{config.app}' does not support mode '{entry.value.current}'."
             exit_msg += f" Supported modes: {oxfordcomma(subcommand_modes, 'and')}."
             exit_messages.append(ExitMessage(message=exit_msg))
-            mode_cli = config.entry("mode").cli_parameters
-            if mode_cli:
+            if mode_cli := config.entry("mode").cli_parameters:
                 other = [
                     f"{mode_cli.short} {mode}"
                     for mode in subcommand_modes
@@ -687,16 +687,19 @@ class NavigatorPostProcessor:
         """Post process pass_environment_variable"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if config.app == "run" and entry.value.current is C.NOT_SET:
-            if not (
+        if (
+            config.app == "run"
+            and entry.value.current is C.NOT_SET
+            and not (
                 config.entry("help_playbook").value.current
                 and config.entry("mode").value.current == "stdout"
-            ):
-                exit_msg = "A playbook is required when using the run subcommand"
-                exit_messages.append(ExitMessage(message=exit_msg))
-                exit_msg = "Try again with 'run <playbook name>'"
-                exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
-                return messages, exit_messages
+            )
+        ):
+            exit_msg = "A playbook is required when using the run subcommand"
+            exit_messages.append(ExitMessage(message=exit_msg))
+            exit_msg = "Try again with 'run <playbook name>'"
+            exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
+            return messages, exit_messages
         if isinstance(entry.value.current, str):
             entry.value.current = abs_user_path(entry.value.current)
         return messages, exit_messages
@@ -726,15 +729,14 @@ class NavigatorPostProcessor:
         if isinstance(entry.value.current, str):
             entry.value.current = abs_user_path(entry.value.current)
 
-        if config.app == "replay":
-            if not os.path.isfile(entry.value.current):
-                exit_msg = (
-                    f"The specified playbook artifact could not be found: {entry.value.current}"
-                )
-                exit_messages.append(ExitMessage(message=exit_msg))
-                exit_msg = "Try again with 'replay <valid path to playbook artifact>'"
-                exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
-                return messages, exit_messages
+        if config.app == "replay" and not os.path.isfile(entry.value.current):
+            exit_msg = (
+                f"The specified playbook artifact could not be found: {entry.value.current}"
+            )
+            exit_messages.append(ExitMessage(message=exit_msg))
+            exit_msg = "Try again with 'replay <valid path to playbook artifact>'"
+            exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
+            return messages, exit_messages
         return messages, exit_messages
 
     @staticmethod

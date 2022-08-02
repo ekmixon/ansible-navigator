@@ -10,23 +10,17 @@ def id_for_base(val):
         return "No base params"
     if "editor-command" in val:
         return "Long base params"
-    if "ecmd" in val:
-        return "Short base params"
-    return "Unknown base params"
+    return "Short base params" if "ecmd" in val else "Unknown base params"
 
 
 def id_for_cli(val):
     """Generate an id for a CLI entry."""
-    if isinstance(val, str):
-        return val
-    return ""
+    return val if isinstance(val, str) else ""
 
 
 def id_for_name(val):
     """Return an id based on entry name."""
-    if isinstance(val, Entry):
-        return f" {val.name} "
-    return ""
+    return f" {val.name} " if isinstance(val, Entry) else ""
 
 
 def id_for_settings(val):
@@ -35,9 +29,7 @@ def id_for_settings(val):
         return f"others={val}"
     if val == "ansible-navigator_empty.yml":
         return "empty settings file"
-    if val == "ansible-navigator.yml":
-        return "full settings file"
-    return val
+    return "full settings file" if val == "ansible-navigator.yml" else val
 
 
 def config_post_process(expected, path):

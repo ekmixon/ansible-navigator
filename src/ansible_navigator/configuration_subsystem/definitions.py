@@ -98,13 +98,13 @@ class Entry(SimpleNamespace):
         name = self.name.replace("_", "-")
         if self.value.source is not Constants.NOT_SET:
             choices = [str(choice).lower() for choice in self.choices]
-            msg = (
+            return (
                 f"{name} must be one of "
                 + oxfordcomma(choices, "or")
                 + f", but set as '{self.value.current}' in "
                 + self.value.source.value
             )
-            return msg
+
         raise ValueError(f"Current source not set for {self.name}")
 
     @property

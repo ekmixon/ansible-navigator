@@ -40,18 +40,15 @@ def dict_to_form(form_data: Dict) -> Form:
             field_params["prompt"] = field["prompt"]
             field_params["validator"] = getattr(FieldValidators, field["validator"]["name"])
 
-            choices = field["validator"].get("choices")
-            if choices:
+            if choices := field["validator"].get("choices"):
                 field_params["validator"] = partial(field_params["validator"], choices=choices)
 
-            default = field.get("default")
-            if default:
+            if default := field.get("default"):
                 field_params["default"] = default
 
             frm_field_text = FieldText(**field_params)
 
-            pre_populate = field.get("pre_populate")
-            if pre_populate:
+            if pre_populate := field.get("pre_populate"):
                 frm_field_text.pre_populate(pre_populate)
 
             form.fields.append(frm_field_text)  # pylint: disable=no-member
@@ -60,12 +57,10 @@ def dict_to_form(form_data: Dict) -> Form:
             field_params["prompt"] = field["prompt"]
             field_params["options"] = [FieldOption(**option) for option in field["options"]]
             if field["type"] == "checkbox":
-                max_selected = field.get("max_selected")
-                if max_selected:
+                if max_selected := field.get("max_selected"):
                     field_params["max_selected"] = max_selected
 
-                min_selected = field.get("min_selected")
-                if min_selected:
+                if min_selected := field.get("min_selected"):
                     field_params["min_selected"] = min_selected
                 frm_field_checks = FieldChecks(**field_params)
                 form.fields.append(frm_field_checks)  # pylint: disable=no-member
@@ -108,9 +103,7 @@ def form_to_dict(form: Form, key_on_name: bool = False) -> Dict:
         for field in res["fields"]:
             fields[field["name"]] = field
             if "options" in field:
-                options = {}
-                for option in field["options"]:
-                    options[option["name"]] = option
+                options = {option["name"]: option for option in field["options"]}
                 fields[field["name"]]["options"] = options
         res["fields"] = fields
     return res

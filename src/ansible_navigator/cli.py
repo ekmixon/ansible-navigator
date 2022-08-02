@@ -76,8 +76,7 @@ def run(args: ApplicationConfiguration) -> int:
     """run the appropriate app"""
     try:
         if args.mode == "stdout":
-            return_code = run_action_stdout(args.app.replace("-", "_"), args)
-            return return_code
+            return run_action_stdout(args.app.replace("-", "_"), args)
         clear_screen()
         wrapper(ActionRunner(args=args).run)
         return 0
@@ -119,8 +118,11 @@ def main():
         Path(args.log_file).touch()
         setup_logger(args)
     except Exception as exc:  # pylint: disable=broad-except
-        exit_msg = "The log file path or logging engine could not be setup."
-        exit_msg += " No log file will be available, please check the log file"
+        exit_msg = (
+            "The log file path or logging engine could not be setup."
+            + " No log file will be available, please check the log file"
+        )
+
         exit_msg += f" path setting. The error was {str(exc)}"
         exit_messages.append(ExitMessage(message=exit_msg))
         error_and_exit_early(exit_messages=exit_messages)
@@ -138,8 +140,7 @@ def main():
     if args.execution_environment:
         pull_image(args)
 
-    return_code = run(args)
-    if return_code:
+    if return_code := run(args):
         sys.exit(return_code)
 
 

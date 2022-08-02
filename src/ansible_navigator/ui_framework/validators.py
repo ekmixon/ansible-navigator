@@ -47,10 +47,7 @@ class FieldValidators:
         """no validation"""
         if hint:
             return "Please provide a value (optional)"
-        if text:
-            value = "*" * randrange(15, 20)
-        else:
-            value = ""
+        value = "*" * randrange(15, 20) if text else ""
         return Validation(value=value, error_msg="")
 
     @staticmethod
@@ -63,18 +60,13 @@ class FieldValidators:
     @staticmethod
     def null(text="", hint: bool = False) -> Union[Validation, str]:
         """no validation, no message"""
-        if hint:
-            return ""
-        return Validation(value=text, error_msg="")
+        return "" if hint else Validation(value=text, error_msg="")
 
     @staticmethod
     def one_of(choices: List = [], text: str = "", hint: bool = False) -> Union[Validation, str]:
         # pylint: disable=dangerous-default-value
         """validate that some text is one of choices"""
-        if choices:
-            choices_str = f"{', '.join(choices[:-1])} or {choices[-1]}"
-        else:
-            choices_str = ""
+        choices_str = f"{', '.join(choices[:-1])} or {choices[-1]}" if choices else ""
         msg = f"Please enter {choices_str}"
         value = text
         if hint:
@@ -177,7 +169,7 @@ class FieldValidators:
         if hint:
             return msg
 
-        if text == "":
+        if not text:
             msg = ""
             value = text
         else:
@@ -195,11 +187,11 @@ class FieldValidators:
         value = text
         if hint:
             return msg
-        if text:
-            if text[0] == "y":
+        if value:
+            if value[0] == "y":
                 value = "yes"
                 msg = ""
-            elif text[0] == "n":
+            elif value[0] == "n":
                 value = "no"
                 msg = ""
         return Validation(value=value, error_msg=msg)
@@ -225,6 +217,4 @@ class FormValidators:
     ) -> Union[Validation, str]:
         """no validation"""
         msg = ""
-        if hint:
-            return msg
-        return Validation(value=response, error_msg=msg)
+        return msg if hint else Validation(value=response, error_msg=msg)

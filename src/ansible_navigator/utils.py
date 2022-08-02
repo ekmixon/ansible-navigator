@@ -93,7 +93,7 @@ class LogMessage(NamedTuple):
 def oxfordcomma(listed, condition):
     """Format a list into a sentence"""
     listed = [f"'{str(entry)}'" for entry in listed]
-    if len(listed) == 0:
+    if not listed:
         return ""
     if len(listed) == 1:
         return listed[0]
@@ -215,11 +215,12 @@ def find_settings_file() -> Tuple[List[LogMessage], List[ExitMessage], Union[Non
     messages: List[LogMessage] = []
     exit_messages: List[ExitMessage] = []
     allowed_extensions = ["yml", "yaml", "json"]
-    potential_paths: List[List[str]] = []
     found_files: List[str] = []
 
-    potential_paths.append([os.path.expanduser("~"), ".ansible-navigator"])
-    potential_paths.append([os.getcwd(), "ansible-navigator"])
+    potential_paths: List[List[str]] = [
+        [os.path.expanduser("~"), ".ansible-navigator"],
+        [os.getcwd(), "ansible-navigator"],
+    ]
 
     for path in potential_paths:
         message = f"Looking in {path[0]}"
@@ -405,9 +406,7 @@ def remove_ansi(string):
 
 def remove_dbl_un(string):
     """remove a __ from the beginning of a string"""
-    if string.startswith("__"):
-        return string.replace("__", "", 1)
-    return string
+    return string.replace("__", "", 1) if string.startswith("__") else string
 
 
 def round_half_up(number: Union[float, int]) -> int:
@@ -457,8 +456,13 @@ def templar(string: str, template_vars: Mapping) -> Tuple[List[str], Any]:
         template = env.from_string(string)
         result = template.render(template_vars)
     except (ValueError, TemplateError) as exc:
-        errors.append(f"Error while templating string: '{string}'")
-        errors.append(f"The error was: {str(exc)}")
+        errors.extend(
+            (
+                f"Error while templating string: '{string}'",
+                f"The error was: {str(exc)}",
+            )
+        )
+
         for error in errors:
             logger.error(error)
         return errors, string
@@ -482,12 +486,11 @@ def templar(string: str, template_vars: Mapping) -> Tuple[List[str], Any]:
 def to_list(thing: Union[str, List, Tuple, Set, None]) -> List:
     """convert something to a list if necessary"""
     if isinstance(thing, (list, tuple, set)):
-        converted_value = list(thing)
+        return list(thing)
     elif thing is not None:
-        converted_value = [thing]
+        return [thing]
     else:
-        converted_value = []
-    return converted_value
+        return []
 
 
 def unescape_moustaches(obj):

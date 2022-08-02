@@ -68,21 +68,19 @@ class Action:
         filename = None
         line_number = 0
 
-        something = interaction.action.match.groupdict()["something"]
-        if something:
+        if something := interaction.action.match.groupdict()["something"]:
             parts = something.rsplit(":", 1)
             if os.path.isfile(parts[0]):
                 filename = parts[0]
                 line_number = parts[1:][0] if parts[1:] else 0
             else:
                 obj = something
+        elif interaction.content:
+            obj = interaction.content.showing
+        elif interaction.menu:
+            obj = self._menu(menu=interaction.menu, menu_filter=interaction.ui.menu_filter)
         else:
-            if interaction.content:
-                obj = interaction.content.showing
-            elif interaction.menu:
-                obj = self._menu(menu=interaction.menu, menu_filter=interaction.ui.menu_filter)
-            else:
-                return None
+            return None
 
         if not filename:
             if interaction.ui.xform() == "text.html.markdown":

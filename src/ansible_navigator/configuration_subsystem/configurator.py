@@ -146,57 +146,58 @@ class Configurator:
                 self._messages.append(LogMessage(level=logging.INFO, message=message))
 
     def _apply_settings_file(self) -> None:
-        if self._settings_file_path:
-            with open(self._settings_file_path, "r", encoding="utf-8") as config_fh:
-                try:
-                    config = yaml.load(config_fh, Loader=SafeLoader)
-                except (yaml.scanner.ScannerError, yaml.parser.ParserError) as exc:
-                    exit_msg = (
-                        f"Settings file found {self._settings_file_path}, but failed to load it."
-                    )
-                    self._exit_messages.append(ExitMessage(message=exit_msg))
-                    exit_msg = f"  error was: '{' '.join(str(exc).splitlines())}'"
-                    self._exit_messages.append(ExitMessage(message=exit_msg))
-                    exit_msg = (
-                        f"Try checking the settings file '{self._settings_file_path}'"
-                        "and ensure it is properly formatted"
-                    )
-                    self._exit_messages.append(
-                        ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT)
-                    )
-                    return
-            for entry in self._config.entries:
-                settings_file_path = entry.settings_file_path(self._config.application_name)
-                path_parts = settings_file_path.split(".")
-                data = config
-                try:
-                    for key in path_parts:
-                        data = data[key]
-                    if self._initial or entry.change_after_initial:
-                        entry.value.current = data
-                        entry.value.source = C.USER_CFG
-                    else:
-                        message = f"'{entry.name}' cannot be reconfigured. (settings file)"
-                        self._messages.append(LogMessage(level=logging.INFO, message=message))
-                except TypeError as exc:
-                    exit_msg = (
-                        "Errors encountered when loading settings file:"
-                        f" {self._settings_file_path}"
-                        f" while loading entry {entry.name}, attempted: {settings_file_path}."
-                        f"The resulting error was {str(exc)}"
-                    )
-                    self._exit_messages.append(ExitMessage(message=exit_msg))
-                    exit_msg = (
-                        f"Try checking the settings file '{self._settings_file_path}'"
-                        "and ensure it is properly formatted"
-                    )
-                    self._exit_messages.append(
-                        ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT)
-                    )
-                    return
-                except KeyError:
-                    message = f"{settings_file_path} not found in settings file"
-                    self._messages.append(LogMessage(level=logging.DEBUG, message=message))
+        if not self._settings_file_path:
+            return
+        with open(self._settings_file_path, "r", encoding="utf-8") as config_fh:
+            try:
+                config = yaml.load(config_fh, Loader=SafeLoader)
+            except (yaml.scanner.ScannerError, yaml.parser.ParserError) as exc:
+                exit_msg = (
+                    f"Settings file found {self._settings_file_path}, but failed to load it."
+                )
+                self._exit_messages.append(ExitMessage(message=exit_msg))
+                exit_msg = f"  error was: '{' '.join(str(exc).splitlines())}'"
+                self._exit_messages.append(ExitMessage(message=exit_msg))
+                exit_msg = (
+                    f"Try checking the settings file '{self._settings_file_path}'"
+                    "and ensure it is properly formatted"
+                )
+                self._exit_messages.append(
+                    ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT)
+                )
+                return
+        for entry in self._config.entries:
+            settings_file_path = entry.settings_file_path(self._config.application_name)
+            path_parts = settings_file_path.split(".")
+            data = config
+            try:
+                for key in path_parts:
+                    data = data[key]
+                if self._initial or entry.change_after_initial:
+                    entry.value.current = data
+                    entry.value.source = C.USER_CFG
+                else:
+                    message = f"'{entry.name}' cannot be reconfigured. (settings file)"
+                    self._messages.append(LogMessage(level=logging.INFO, message=message))
+            except TypeError as exc:
+                exit_msg = (
+                    "Errors encountered when loading settings file:"
+                    f" {self._settings_file_path}"
+                    f" while loading entry {entry.name}, attempted: {settings_file_path}."
+                    f"The resulting error was {str(exc)}"
+                )
+                self._exit_messages.append(ExitMessage(message=exit_msg))
+                exit_msg = (
+                    f"Try checking the settings file '{self._settings_file_path}'"
+                    "and ensure it is properly formatted"
+                )
+                self._exit_messages.append(
+                    ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT)
+                )
+                return
+            except KeyError:
+                message = f"{settings_file_path} not found in settings file"
+                self._messages.append(LogMessage(level=logging.DEBUG, message=message))
 
     def _apply_environment_variables(self) -> None:
         for entry in self._config.entries:
@@ -257,17 +258,20 @@ class Configurator:
 
     def _check_choices(self) -> None:
         for entry in self._config.entries:
-            if entry.cli_parameters and entry.choices:
-                if entry.value.current not in entry.choices:
-                    self._exit_messages.append(ExitMessage(message=entry.invalid_choice))
-                    choices = [
-                        f"{entry.cli_parameters.short} {str(choice).lower()}"
-                        for choice in entry.choices
-                    ]
-                    exit_msg = f"Try again with {oxfordcomma(choices, 'or')}"
-                    self._exit_messages.append(
-                        ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT)
-                    )
+            if (
+                entry.cli_parameters
+                and entry.choices
+                and entry.value.current not in entry.choices
+            ):
+                self._exit_messages.append(ExitMessage(message=entry.invalid_choice))
+                choices = [
+                    f"{entry.cli_parameters.short} {str(choice).lower()}"
+                    for choice in entry.choices
+                ]
+                exit_msg = f"Try again with {oxfordcomma(choices, 'or')}"
+                self._exit_messages.append(
+                    ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT)
+                )
 
     def _apply_previous_cli_to_current(self) -> None:
         # pylint: disable=too-many-nested-blocks
@@ -314,9 +318,11 @@ class Configurator:
                 continue
 
             # skip if the same subcommand is required for reapplication
-            if current_entry.apply_to_subsequent_cli is C.SAME_SUBCOMMAND:
-                if current_subcommand != previous_subcommand:
-                    continue
+            if (
+                current_entry.apply_to_subsequent_cli is C.SAME_SUBCOMMAND
+                and current_subcommand != previous_subcommand
+            ):
+                continue
 
             # skip if the previous entry was not set by the CLI
             if previous_entry.value.source is not C.USER_CLI:

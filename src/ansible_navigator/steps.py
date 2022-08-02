@@ -121,9 +121,7 @@ class Steps(deque):
 
     def back_one(self) -> Any:
         """convenience method"""
-        if self:
-            return self.pop()
-        return None
+        return self.pop() if self else None
 
     @property
     def current(self) -> Any:

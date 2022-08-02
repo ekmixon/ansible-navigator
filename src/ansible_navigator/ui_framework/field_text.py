@@ -34,9 +34,7 @@ class FieldText:
     @property
     def formatted_default(self) -> str:
         """return the default value"""
-        if self.default is nonexistent:
-            return ""
-        return f" ({self.default})"
+        return "" if self.default is nonexistent else f" ({self.default})"
 
     @property
     def full_prompt(self) -> str:
@@ -48,11 +46,11 @@ class FieldText:
         with a value, this is different that a default
         in that it will populate the text input field
         """
-        self.conditional_validation(str(value))
+        self.conditional_validation(value)
 
     def validate(self, response: str) -> None:
         """validate the response"""
-        if response == "" and self.default is not nonexistent:
+        if not response and self.default is not nonexistent:
             response = str(self.default)
 
         self.response = response
@@ -68,7 +66,7 @@ class FieldText:
         """conditional validation used for tab,
         only accept the value if it validates, otherwise move along
         """
-        if response == "" and self.default is not nonexistent:
+        if not response and self.default is not nonexistent:
             response = str(self.default)
         # no response or validator is none
         if response or getattr(self.validator, "__name__", "").endswith("none"):

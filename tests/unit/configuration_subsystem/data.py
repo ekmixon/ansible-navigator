@@ -200,8 +200,7 @@ def cli_data():
         + CLI_DATA_REPLAY  # type: ignore
         + CLI_DATA_RUN  # type: ignore
     )
-    frozen = [(cmd, d2t(expected)) for cmd, expected in aggregated]
-    return frozen
+    return [(cmd, d2t(expected)) for cmd, expected in aggregated]
 
 
 CLI_DATA = cli_data()

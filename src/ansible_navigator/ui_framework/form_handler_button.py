@@ -26,11 +26,7 @@ class FormHandlerButton(CursesWindow):
 
     def populate(self):
         """populate the window with the button"""
-        if self._form_field.disabled is True:
-            color = 8
-        else:
-            color = self._form_field.color
-
+        color = 8 if self._form_field.disabled is True else self._form_field.color
         if self._ui_config.color is False:
             text = f"[{self._form_field.text.upper()}]"
         else:

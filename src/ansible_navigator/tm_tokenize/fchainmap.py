@@ -22,5 +22,4 @@ class FChainMap(Generic[TKey, TValue]):
                 return mapping[key]
             except KeyError:
                 pass
-        else:
-            raise KeyError(key)
+        raise KeyError(key)

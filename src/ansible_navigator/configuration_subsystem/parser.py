@@ -32,17 +32,13 @@ class Parser:
     @staticmethod
     def generate_argument(entry) -> Tuple[Any, Union[Any, str, None], Dict[str, Any]]:
         """Generate an argparse argument"""
-        kwargs = {}
         help_strings = [entry.short_description]
         if entry.choices:
             lower_choices = (str(choice).lower() for choice in entry.choices)
             help_strings.append(f"(choices: {oxfordcomma(lower_choices, 'or')})")
         if entry.value.default is not C.NOT_SET:
             help_strings.append(f"(default: '{str(entry.value.default).lower()}')")
-        kwargs["help"] = " ".join(help_strings)
-
-        kwargs["default"] = SUPPRESS
-
+        kwargs = {"help": " ".join(help_strings), "default": SUPPRESS}
         if entry.cli_parameters.positional:
             long = None
             if entry.cli_parameters.nargs is None:
@@ -75,7 +71,7 @@ class Parser:
         subcommand_value = [
             entry for entry in self._config.entries if entry.subcommand_value is True
         ]
-        if len(subcommand_value) == 0:
+        if not subcommand_value:
             raise ValueError("No entry with subparser value defined")
         if len(subcommand_value) > 1:
             raise ValueError("Multiple entries with subparser value defined")
@@ -88,8 +84,9 @@ class Parser:
 
     def _configure_base(self) -> None:
         self._base_parser.add_argument(
-            "--version", action="version", version="%(prog)s " + __version__
+            "--version", action="version", version=f"%(prog)s {__version__}"
         )
+
 
         for entry in self._config.entries:
             if entry.subcommands is C.ALL:

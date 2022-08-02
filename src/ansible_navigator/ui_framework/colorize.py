@@ -55,12 +55,16 @@ class ColorSchema:
         :rtype: tuple or None
         """
         for name in reversed(scope):
-            for parts in range(0, len(name.split("."))):
+            for parts in range(len(name.split("."))):
                 prop = name.split()[-1].rsplit(".", parts)[0]
-                color = next(
-                    (tc for tc in self._schema["tokenColors"] if prop in to_list(tc["scope"])), None
-                )
-                if color:
+                if color := next(
+                    (
+                        tc
+                        for tc in self._schema["tokenColors"]
+                        if prop in to_list(tc["scope"])
+                    ),
+                    None,
+                ):
                     foreground = color.get("settings", {}).get("foreground", None)
                     return hex_to_rgb(foreground)
         return None
@@ -124,8 +128,10 @@ class Colorize:
             else:
                 return columns_and_colors(lines, self._schema)
 
-        res = [[{"column": 0, "chars": doc_line, "color": None}] for doc_line in doc.splitlines()]
-        return res
+        return [
+            [{"column": 0, "chars": doc_line, "color": None}]
+            for doc_line in doc.splitlines()
+        ]
 
 
 def to_list(thing):
@@ -136,9 +142,7 @@ def to_list(thing):
     :return: thing as list
     :rtype: list
     """
-    if not isinstance(thing, list):
-        return [thing]
-    return thing
+    return thing if isinstance(thing, list) else [thing]
 
 
 def hex_to_rgb(value):
@@ -183,8 +187,17 @@ def rgb_to_ansi(red: int, green: int, blue: int, colors: int) -> int:
     :type colors: int
     """
     # https://github.com/Qix-/color-convert/blob/master/conversions.js
-    if colors == 256:
-        if red == green and green == blue:
+    if colors == 16:
+        value = colorsys.rgb_to_hsv(red, green, blue)[2]
+        value = round(value / 50)
+        if value == 0:
+            ansi = 30
+        else:
+            ansi = (round(blue / 255) << 2) | (round(green / 255) << 1) | round(red / 255)
+            if value == 2:
+                ansi += 8
+    elif colors == 256:
+        if red == green == blue:
             if red < 8:
                 ansi = 16
             if red > 248:
@@ -197,16 +210,7 @@ def rgb_to_ansi(red: int, green: int, blue: int, colors: int) -> int:
                 + (6 * round(green / 255 * 5))
                 + round(blue / 255 * 5)
             )
-    elif colors == 16:
-        value = colorsys.rgb_to_hsv(red, green, blue)[2]
-        value = round(value / 50)
-        if value == 0:
-            ansi = 30
-        else:
-            ansi = (round(blue / 255) << 2) | (round(green / 255) << 1) | round(red / 255)
-            if value == 2:
-                ansi += 8
-    else:  # colors == 8, sorry
+    else:
         ansi = (round(blue / 255) << 2) | (round(green / 255) << 1) | round(red / 255)
     return ansi
 
@@ -227,8 +231,7 @@ def columns_and_colors(lines, schema):
         char_dicts = [{"chars": c, "color": None} for c in line[1]]
 
         for region in line[0]:
-            color = schema.get_color(region.scope)
-            if color:
+            if color := schema.get_color(region.scope):
                 for idx in range(region.start, region.end):
                     char_dicts[idx]["color"] = color
 
@@ -281,16 +284,12 @@ def ansi_to_curses(line: str) -> CursesLine:
     color = 0
     style = 0
     while parts:
-        part = parts.pop(0)
-        if part:
-            match = color_regex.match(part)
-            if match:
+        if part := parts.pop(0):
+            if match := color_regex.match(part):
                 cap = match.groupdict()
                 one = cap["one"]
                 two = cap["two"]
-                if cap["fg_action"] == "39;":
-                    pass  # default color
-                elif one == "0" and two is None:
+                if cap["fg_action"] == "39;" or one == "0" and two is None:
                     pass  # default color
                 elif cap["fg_action"] == "38;5;":
                     color = int(one)

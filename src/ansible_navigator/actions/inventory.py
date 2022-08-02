@@ -33,16 +33,14 @@ def color_menu(colno: int, colname: str, entry: Dict[str, Any]) -> Tuple[int, in
 
     :param colname: A word to match
     """
-    if colname in ["__name", "title", "inventory_hostname"]:
+    if colname in {"__name", "title", "inventory_hostname"}:
         return 10, 0
     if colname == "__taxonomy":
         return 11, 0
     if colname == "description":
         return 12, 0
     if colname == "__type":
-        if entry["__type"] == "group":
-            return 11, 0
-        return 12, 0
+        return (11, 0) if entry["__type"] == "group" else (12, 0)
     colors = [14, 13, 6, 5, 4, 3, 2]
     return colors[colno % len(colors)], 0
 
@@ -58,23 +56,21 @@ def content_heading(obj: Any, screen_w: int) -> Union[CursesLines, None]:
     :rtype: Union[CursesLines, None]
     """
 
-    heading = []
     host = obj["inventory_hostname"]
     operating_system = obj.get("ansible_network_os", obj.get("ansible_platform", ""))
     string = f"[{host}] {operating_system}"
     string = string + (" " * (screen_w - len(string) + 1))
-    heading.append(
-        tuple(
-            [
-                CursesLinePart(
-                    column=0,
-                    string=string,
-                    color=0,
-                    decoration=curses.A_UNDERLINE,
-                )
-            ]
+    heading = [
+        (
+            CursesLinePart(
+                column=0,
+                string=string,
+                color=0,
+                decoration=curses.A_UNDERLINE,
+            ),
         )
-    )
+    ]
+
     return tuple(heading)
 
 
@@ -151,10 +147,7 @@ class Action(App):
                 )
             elif os.path.isfile(inventory):
                 mtimes.append(os.path.getmtime(inventory))
-        if mtimes:
-            self._inventories_mtime = max(mtimes)
-        else:
-            self._inventories_mtime = None
+        self._inventories_mtime = max(mtimes, default=None)
 
     def update(self):
         self._calling_app.update()
@@ -268,14 +261,13 @@ class Action(App):
             title="Browse hosts", description="Explore the inventory with a list of all hosts"
         )
 
-        step = Step(
+        return Step(
             name="main_menu",
             columns=["title", "description"],
             select_func=self._step_from_main_menu,
             tipe="menu",
             value=[groups, hosts],
         )
-        return step
 
     def _step_from_main_menu(self) -> Step:
         if self.steps.current.index == 0:
@@ -308,8 +300,7 @@ class Action(App):
                     menu_entry["__type"] = "host"
                     menu.append(menu_entry)
 
-            children = self._inventory[key].get("children", None)
-            if children:
+            if children := self._inventory[key].get("children", None):
                 for child in children:
                     menu_entry = MenuEntry()
                     menu_entry["__name"] = child
@@ -339,7 +330,7 @@ class Action(App):
                 for m_entry in self.steps.current.value
                 if "__type" not in m_entry or m_entry["__type"] == "host"
             ]
-            entry = Step(
+            return Step(
                 name="host_content",
                 tipe="content",
                 value=values,
@@ -347,7 +338,7 @@ class Action(App):
                 columns=["__name"] + self._show_columns,
                 show_func=self._refresh,
             )
-            return entry
+
         except KeyError:
             # selected host removed from inventory
             return self.steps.back_one()
@@ -445,15 +436,8 @@ class Action(App):
         inventory_output, inventory_err = self._runner.fetch_inventory("list", self._inventories)
         if inventory_output:
             parts = inventory_output.split("{", 1)
-            if inventory_err:
-                inventory_err = parts[0] + inventory_err
-            else:
-                inventory_err = parts[0]
-
-            if len(parts) == 2:
-                inventory_output = "{" + parts[1]
-            else:
-                inventory_output = ""
+            inventory_err = parts[0] + inventory_err if inventory_err else parts[0]
+            inventory_output = "{" + parts[1] if len(parts) == 2 else ""
         warn_msg = ["Errors were encountered while gathering the inventory:"]
         warn_msg += inventory_err.splitlines()
         self._logger.error(" ".join(warn_msg))
@@ -485,11 +469,10 @@ class Action(App):
         if isinstance(self._args.cmdline, list):
             pass_through_arg.extend(self._args.cmdline)
 
-        kwargs.update({"cmdline": pass_through_arg, "inventory": self._inventories})
+        kwargs |= {"cmdline": pass_through_arg, "inventory": self._inventories}
 
         self._runner = Command(executable_cmd=ansible_inventory_path, **kwargs)
-        stdout_return = self._runner.run()
-        return stdout_return
+        return self._runner.run()
 
     def _collect_inventory_details(
         self,
@@ -516,12 +499,13 @@ class Action(App):
         }
 
         if isinstance(self._args.execution_environment_volume_mounts, list):
-            kwargs.update(
-                {"container_volume_mounts": self._args.execution_environment_volume_mounts}
-            )
+            kwargs[
+                "container_volume_mounts"
+            ] = self._args.execution_environment_volume_mounts
+
 
         if isinstance(self._args.container_options, list):
-            kwargs.update({"container_options": self._args.container_options})
+            kwargs["container_options"] = self._args.container_options
 
         if self._args.mode == "interactive":
             self._collect_inventory_details_interactive(kwargs)

@@ -44,9 +44,6 @@ class Form:
                 )
             )
             # pylint: enable=no-member
-        elif self.type is FormType.WORKING:
-            pass
-
         FormPresenter(form=self, screen=screen, ui_config=ui_config).present()
         try:
             # pylint: disable=not-an-iterable

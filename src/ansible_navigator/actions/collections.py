@@ -35,9 +35,7 @@ def color_menu(colno: int, colname: str, entry: Dict[str, Any]) -> Tuple[int, in
     """color the menu"""
     if entry.get("__shadowed") is True:
         return 8, 0
-    if entry.get("__deprecated") is True:
-        return 9, 0
-    return 2, 0
+    return (9, 0) if entry.get("__deprecated") is True else (2, 0)
 
 
 def content_heading(obj: Any, screen_w: int) -> Union[CursesLines, None]:
@@ -51,22 +49,20 @@ def content_heading(obj: Any, screen_w: int) -> Union[CursesLines, None]:
     :rtype: Union[CursesLines, None]
     """
 
-    heading = []
     string = f"{obj['full_name'].upper()}: {obj['__description']}"
     string = string + (" " * (screen_w - len(string) + 1))
 
-    heading.append(
-        tuple(
-            [
-                CursesLinePart(
-                    column=0,
-                    string=string,
-                    color=2,
-                    decoration=curses.A_UNDERLINE,
-                )
-            ]
+    heading = [
+        (
+            CursesLinePart(
+                column=0,
+                string=string,
+                color=2,
+                decoration=curses.A_UNDERLINE,
+            ),
         )
-    )
+    ]
+
     return tuple(heading)
 
 
@@ -231,7 +227,7 @@ class Action(App):
                         plugin["additional_information"] = {}
 
                     plugins.append(plugin)
-            except (KeyError, JSONDecodeError) as exc:
+            except KeyError as exc:
                 self._logger.error("error loading plguin doc %s", details)
                 self._logger.debug("error was %s", str(exc))
         plugins = sorted(plugins, key=lambda i: i[cname_col])
@@ -281,14 +277,15 @@ class Action(App):
             playbook_dir = os.getcwd()
 
         if isinstance(self._args.execution_environment_volume_mounts, list):
-            kwargs.update(
-                {"container_volume_mounts": self._args.execution_environment_volume_mounts}
-            )
+            kwargs[
+                "container_volume_mounts"
+            ] = self._args.execution_environment_volume_mounts
+
 
         if isinstance(self._args.container_options, list):
-            kwargs.update({"container_options": self._args.container_options})
+            kwargs["container_options"] = self._args.container_options
 
-        kwargs.update({"host_cwd": playbook_dir})
+        kwargs["host_cwd"] = playbook_dir
 
         self._adjacent_collection_dir = os.path.join(playbook_dir, "collections")
         share_directory = self._args.internals.share_directory
@@ -301,7 +298,7 @@ class Action(App):
             self._collection_cache_path,
         ]
 
-        kwargs.update({"cmdline": pass_through_arg})
+        kwargs["cmdline"] = pass_through_arg
 
         if self._args.execution_environment:
             self._logger.debug("running collections command with execution environment enabled")
@@ -316,7 +313,7 @@ class Action(App):
             container_volume_mounts.append(
                 f"{self._collection_cache_path}:{self._collection_cache_path}:z"
             )
-            kwargs.update({"container_volume_mounts": container_volume_mounts})
+            kwargs["container_volume_mounts"] = container_volume_mounts
 
         else:
             self._logger.debug("running collections command locally")
@@ -347,7 +344,7 @@ class Action(App):
                 json_str = output
             parsed = json.loads(json_str)
             self._logger.debug("json loading output succeeded")
-        except (JSONDecodeError, ValueError) as exc:
+        except ValueError as exc:
             self._logger.error("Unable to extract collection json from stdout")
             self._logger.debug("error json loading output: '%s'", str(exc))
             self._logger.debug(output)

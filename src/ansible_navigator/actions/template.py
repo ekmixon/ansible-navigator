@@ -37,8 +37,10 @@ class Action(App):
         self._logger.debug("template requested '%s'", interaction.action.value)
         self._prepare_to_run(app, interaction)
 
-        type_msgs = ["Current content passed for templating is not a dictionary."]
-        type_msgs.append("[HINT] Use 'this' to reference it (e.g. {{ this[0] }}")
+        type_msgs = [
+            "Current content passed for templating is not a dictionary.",
+            "[HINT] Use 'this' to reference it (e.g. {{ this[0] }}",
+        ]
 
         if interaction.content:
             if isinstance(interaction.content.showing, Mapping):

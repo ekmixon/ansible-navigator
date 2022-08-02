@@ -64,14 +64,12 @@ def find_config() -> Tuple[List[LogMessage], List[ExitMessage], Union[None, str]
     if env_config_path is not None:
         config_path = env_config_path
         message = f"Using settings file at {config_path} set by {cfg_env_var}"
-        messages.append(LogMessage(level=logging.DEBUG, message=message))
     elif found_config_path is not None:
         config_path = found_config_path
         message = f"Using settings file at {config_path} in search path"
-        messages.append(LogMessage(level=logging.DEBUG, message=message))
     else:
         message = "No valid settings file found, using all default values for settings."
-        messages.append(LogMessage(level=logging.DEBUG, message=message))
+    messages.append(LogMessage(level=logging.DEBUG, message=message))
     return messages, exit_messages, config_path
 
 
@@ -82,19 +80,21 @@ def get_and_check_collection_doc_cache(
     has the current version of the application
     as a safeguard, always delete and rebuild if not
     """
-    messages: List[LogMessage] = []
     exit_messages: List[ExitMessage] = []
     collecion_cache: Dict[str, Dict] = {}
     message = f"Collection doc cache: 'path' is '{collection_doc_cache_path}'"
-    messages.append(LogMessage(level=logging.DEBUG, message=message))
-
+    messages: List[LogMessage] = [LogMessage(level=logging.DEBUG, message=message)]
     path_errors = []
     doc_cache_dir = os.path.dirname(collection_doc_cache_path)
     try:
         os.makedirs(doc_cache_dir, exist_ok=True)
     except OSError as exc:
-        path_errors.append(f"Problem making directory: {doc_cache_dir}")
-        path_errors.append(f"Error was: {str(exc)}")
+        path_errors.extend(
+            (
+                f"Problem making directory: {doc_cache_dir}",
+                f"Error was: {str(exc)}",
+            )
+        )
 
     if not os.access(os.path.dirname(collection_doc_cache_path), os.W_OK):
         path_errors.append("Directory not writable")
@@ -103,8 +103,7 @@ def get_and_check_collection_doc_cache(
         path_errors.append("Directory not readable")
 
     if path_errors:
-        exit_msgs = ["Problem while building the collection doc cache."]
-        exit_msgs.extend(path_errors)
+        exit_msgs = ["Problem while building the collection doc cache.", *path_errors]
         exit_messages.extend([ExitMessage(message=exit_msg) for exit_msg in exit_msgs])
         exit_msg = "Try again without '--cdcp' or try '--cdcp ~/collection_doc_cache.db"
         exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
@@ -201,11 +200,9 @@ def parse_and_update(
         if attach_cdc:
             args.internals.collection_doc_cache = cache
             message = "Collection doc cache attached to args.internals"
-            messages.append(LogMessage(level=logging.DEBUG, message=message))
         else:
             message = "Collection doc cache not attached to args.internals"
-            messages.append(LogMessage(level=logging.DEBUG, message=message))
-
+        messages.append(LogMessage(level=logging.DEBUG, message=message))
     for entry in args.entries:
         message = f"Running with {entry.name} as '{entry.value.current}'"
         message += f" ({type(entry.value.current).__name__}/{entry.value.source.value})"

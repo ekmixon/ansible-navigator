@@ -37,9 +37,7 @@ def color_menu(colno: int, colname: str, entry: Dict[str, Any]) -> Tuple[int, in
     # pylint: disable=unused-argument
 
     """color the menu"""
-    if entry["__default"] is False:
-        return 3, 0
-    return 2, 0
+    return (3, 0) if entry["__default"] is False else (2, 0)
 
 
 def content_heading(obj: Any, screen_w: int) -> Union[CursesLines, None]:
@@ -53,7 +51,6 @@ def content_heading(obj: Any, screen_w: int) -> Union[CursesLines, None]:
     :rtype: Union[CursesLines, None]
     """
 
-    heading = []
     string = obj["option"].replace("_", " ")
     if obj["__default"] is False:
         string += f" (current: {obj['__current_value']})  (default: {obj['default']})"
@@ -64,18 +61,17 @@ def content_heading(obj: Any, screen_w: int) -> Union[CursesLines, None]:
 
     string = string + (" " * (screen_w - len(string) + 1))
 
-    heading.append(
-        tuple(
-            [
-                CursesLinePart(
-                    column=0,
-                    string=string,
-                    color=color,
-                    decoration=curses.A_UNDERLINE,
-                )
-            ]
+    heading = [
+        (
+            CursesLinePart(
+                column=0,
+                string=string,
+                color=color,
+                decoration=curses.A_UNDERLINE,
+            ),
         )
-    )
+    ]
+
     return tuple(heading)
 
 
@@ -144,8 +140,7 @@ class Action(App):
     def run_stdout(self) -> Union[None, int]:
         """Run in old school mode, just stdout"""
         self._logger.debug("config requested in stdout mode")
-        response = self._run_runner()
-        if response:
+        if response := self._run_runner():
             _, _, ret_code = response
             return ret_code
         return None
@@ -226,12 +221,13 @@ class Action(App):
         }
 
         if isinstance(self._args.execution_environment_volume_mounts, list):
-            kwargs.update(
-                {"container_volume_mounts": self._args.execution_environment_volume_mounts}
-            )
+            kwargs[
+                "container_volume_mounts"
+            ] = self._args.execution_environment_volume_mounts
+
 
         if isinstance(self._args.container_options, list):
-            kwargs.update({"container_options": self._args.container_options})
+            kwargs["container_options"] = self._args.container_options
 
         if self._args.mode == "interactive":
             self._runner = AnsibleConfig(**kwargs)
@@ -247,7 +243,7 @@ class Action(App):
                 msg = f"Error occurred while fetching ansible config (dump): '{dump_output_err}'"
                 self._logger.error(msg)
 
-            err_msg = "\n".join(set((list_output_err, dump_output_err)))
+            err_msg = "\n".join({list_output_err, dump_output_err})
             if "ERROR!" in err_msg or not list_output or not dump_output:
                 warn_msg = ["Errors were encountered while gathering the configuration:"]
                 if err_msg:
@@ -280,11 +276,10 @@ class Action(App):
             if isinstance(self._args.config, str):
                 pass_through_arg.extend(["--config", self._args.config])
 
-            kwargs.update({"cmdline": pass_through_arg})
+            kwargs["cmdline"] = pass_through_arg
 
             self._runner = Command(executable_cmd=ansible_config_path, **kwargs)
-            stdout_return = self._runner.run()
-            return stdout_return
+            return self._runner.run()
         return (None, None, None)
 
     def _parse_and_merge(self, list_output, dump_output) -> None:
@@ -301,8 +296,7 @@ class Action(App):
 
         regex = re.compile(r"^(?P<variable>\S+)\((?P<source>.*)\)\s=\s(?P<current>.*)$")
         for line in dump_output.splitlines():
-            extracted = regex.match(line)
-            if extracted:
+            if extracted := regex.match(line):
                 variable = extracted.groupdict()["variable"]
                 try:
                     source = yaml.load(extracted.groupdict()["source"], Loader=Loader)
@@ -330,11 +324,7 @@ class Action(App):
 
         for key, value in parsed.items():
             value["option"] = key
-            if value["source"] == "default":
-                value["__default"] = True
-            else:
-                value["__default"] = False
-
+            value["__default"] = value["source"] == "default"
         self._config = list(parsed.values())
         self._logger.debug("parsed and merged list and dump successfully")
         return None

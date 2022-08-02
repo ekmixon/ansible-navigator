@@ -51,20 +51,21 @@ class CollectionCatalog:
         path = collection["path"]
         file_chksums = {}
 
-        file_manifest_file = collection.get("file_manifest_file", {}).get("name")
-        if file_manifest_file:
+        if file_manifest_file := collection.get("file_manifest_file", {}).get(
+            "name"
+        ):
             fpath = f"{path}/{file_manifest_file}"
             if os.path.exists(fpath):
                 with open(file=fpath, encoding="utf-8") as read_file:
                     try:
                         loaded = json.load(read_file)
                         file_chksums = {v["name"]: v for v in loaded["files"]}
-                    except (JSONDecodeError, KeyError) as exc:
+                    except KeyError as exc:
                         self._errors.append({"path": fpath, "error": str(exc)})
 
-        exempt = ["action", "module_utils", "doc_fragments"]
         plugin_directory = os.path.join(path, "plugins")
         if os.path.isdir(plugin_directory):
+            exempt = ["action", "module_utils", "doc_fragments"]
             plugin_dirs = [
                 (f.name, f.path)
                 for f in os.scandir(plugin_directory)
@@ -85,14 +86,13 @@ class CollectionCatalog:
         with open(file_path, "rb") as fhand:
             for byte_block in iter(lambda: fhand.read(4096), b""):
                 sha256_hash.update(byte_block)
-        res = {
+        return {
             "name": relative_path,
             "ftype": "file",
             "chksum_type": "sha256",
             "chksum_sha256": sha256_hash.hexdigest(),
             "format": 1,
         }
-        return res
 
     def _process_plugin_dir(
         self, plugin_type: str, filenames: List, file_chksums: Dict, dirpath: str, collection: Dict
@@ -130,8 +130,13 @@ class CollectionCatalog:
             elif os.path.exists(galaxy_file):
                 with open(file=galaxy_file, encoding="utf-8") as read_file:
                     try:
-                        collection = {"collection_info": yaml.load(read_file, Loader=SafeLoader)}
-                        collection["meta_source"] = "galaxy.yml"
+                        collection = {
+                            "collection_info": yaml.load(
+                                read_file, Loader=SafeLoader
+                            ),
+                            "meta_source": "galaxy.yml",
+                        }
+
                     except YAMLError:
                         error = {
                             "path": os.path.dirname(galaxy_file),
@@ -170,7 +175,7 @@ class CollectionCatalog:
         for idx, (cpath, o_collection) in reversed(list(enumerate(self._collections.items()))):
             self._collections[cpath]["hidden_by"] = []
             if counts[o_collection["known_as"]] > 1:
-                for i_collection in reversed(collection_list[0:idx]):
+                for i_collection in reversed(collection_list[:idx]):
                     if i_collection["known_as"] == o_collection["known_as"]:
                         self._collections[cpath]["hidden_by"].insert(0, i_collection["path"])
 
@@ -262,8 +267,7 @@ def parse_args():
     )
     parsed_args = parser.parse_args()
 
-    adjacent = vars(parsed_args).get("adjacent")
-    if adjacent:
+    if adjacent := vars(parsed_args).get("adjacent"):
         directories = [adjacent] + parsed_args.dirs
     else:
         directories = parsed_args.dirs
@@ -286,8 +290,7 @@ def retrieve_collections_paths() -> Dict:
     if "error" in proc_out:
         return proc_out
     regex = re.compile(r"^(?P<variable>\S+)\((?P<source>.*)\)\s=\s(?P<current>.*)$")
-    parsed = regex.match(proc_out["stdout"])
-    if parsed:
+    if parsed := regex.match(proc_out["stdout"]):
         try:
             current = yaml.load(parsed.groupdict()["current"], Loader=SafeLoader)
             return {"result": current}
@@ -348,13 +351,13 @@ def run_command(cmd: List) -> Dict:
 def main() -> Dict:
     # pylint: disable=protected-access
     """main"""
-    stats = {}
-    stats["cache_added_success"] = 0
-    stats["cache_added_errors"] = 0
-
     cc_obj = CollectionCatalog(directories=parent_directories)
     collections, errors = cc_obj.process_directories()
-    stats["collection_count"] = len(collections)
+    stats = {
+        "cache_added_success": 0,
+        "cache_added_errors": 0,
+        "collection_count": len(collections),
+    }
 
     collection_cache_path = os.path.abspath(os.path.expanduser(args.collection_cache_path))
     collection_cache = KeyValueStore(collection_cache_path)

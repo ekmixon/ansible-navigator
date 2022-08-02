@@ -46,11 +46,10 @@ class BaseClass:
 
         received_output = tmux_session.interaction(user_input, search_within_response)
 
-        fixtures_update_requested = (
+        if fixtures_update_requested := (
             self.UPDATE_FIXTURES
             or os.environ.get("ANSIBLE_NAVIGATOR_UPDATE_TEST_FIXTURES") == "true"
-        )
-        if fixtures_update_requested:
+        ):
             update_fixtures(request, index, received_output, comment)
 
         dir_path, file_name = fixture_path_from_request(request, index)

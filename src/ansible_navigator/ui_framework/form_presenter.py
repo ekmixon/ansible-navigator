@@ -64,7 +64,10 @@ class FormPresenter(CursesWindow):
         return self._screen_w - self._field_win_start
 
     def _dimensions(self):
-        self._prompt_end = max([len(form_field.full_prompt) for form_field in self._form.fields])
+        self._prompt_end = max(
+            len(form_field.full_prompt) for form_field in self._form.fields
+        )
+
         self._input_start = self._prompt_end + len(self._seperator)
 
         widths = []
@@ -74,9 +77,9 @@ class FormPresenter(CursesWindow):
             if hasattr(field, "options"):
                 widths.extend((len(option.text) + self._input_start for option in field.options))
             if hasattr(field, "information"):
-                widths.append(max([len(info) for info in field.information]))
+                widths.append(max(len(info) for info in field.information))
             if hasattr(field, "messages"):
-                widths.append(max([len(msg) for msg in field.messages]))
+                widths.append(max(len(msg) for msg in field.messages))
             widths.append(len(field.validator(hint=True)) + self._input_start)
 
         if self._form.type is FormType.FORM:
@@ -101,8 +104,7 @@ class FormPresenter(CursesWindow):
         self._pad_left = max(int((self._screen_w - self._form_width) * LPAD_RATIO), 0)
 
     def _generate_form(self) -> Tuple[Tuple[int, CursesLine], ...]:
-        lines = []
-        lines.append((self._line_number, self._generate_title()))
+        lines = [(self._line_number, self._generate_title())]
         self._line_number += 1
         lines.append((self._line_number, self._generate_hline()))
         self._line_number += 1
@@ -132,15 +134,14 @@ class FormPresenter(CursesWindow):
             elif isinstance(form_field, (FieldChecks, FieldRadio)):
                 prompt = self._generate_prompt(form_field)
                 option_lines = self._generate_field_options(form_field)
-                lines.append((self._line_number, prompt + tuple([option_lines[0]])))
+                lines.append((self._line_number, prompt + (option_lines[0], )))
                 self._line_number += 1
 
                 for option_line in option_lines[1:]:
-                    lines.append((self._line_number, tuple([option_line])))
+                    lines.append((self._line_number, (option_line, )))
                     self._line_number += 1
 
-            error = self._generate_error(form_field)
-            if error:
+            if error := self._generate_error(form_field):
                 lines.append((self._line_number, error))
                 self._line_number += 1
 
@@ -162,10 +163,7 @@ class FormPresenter(CursesWindow):
             form_field.conditional_validation(
                 (f.valid for f in self._form.fields if not isinstance(f, FieldButton))
             )
-            if form_field.disabled is True:
-                color = 8
-            else:
-                color = form_field.color
+            color = 8 if form_field.disabled is True else form_field.color
             clp = CursesLinePart(far_right, string, color, 0)
             line_parts.append(clp)
             far_right -= 1
@@ -212,21 +210,17 @@ class FormPresenter(CursesWindow):
 
     @staticmethod
     def _generate_information(form_field) -> CursesLines:
-        lines = tuple((CursesLinePart(0, line, 0, 0),) for line in form_field.information)
-        return lines
+        return tuple(
+            (CursesLinePart(0, line, 0, 0),) for line in form_field.information
+        )
 
     @staticmethod
     def _generate_messages(form_field) -> CursesLines:
-        lines = tuple((CursesLinePart(0, line, 0, 0),) for line in form_field.messages)
-        return lines
+        return tuple((CursesLinePart(0, line, 0, 0),) for line in form_field.messages)
 
     def _generate_prompt(self, form_field) -> CursesLine:
         prompt_start = self._prompt_end - len(form_field.full_prompt)
-        if form_field.valid is True:
-            color = 10
-        else:
-            color = 0
-
+        color = 10 if form_field.valid is True else 0
         cl_prompt = CursesLinePart(prompt_start, form_field.prompt, color, 0)
         cl_default = CursesLinePart(
             prompt_start + len(form_field.prompt),
@@ -235,8 +229,7 @@ class FormPresenter(CursesWindow):
             0,
         )
         cl_seperator = CursesLinePart(self._prompt_end, self._seperator, color, 0)
-        line_parts = (cl_prompt, cl_default, cl_seperator)
-        return line_parts
+        return cl_prompt, cl_default, cl_seperator
 
     def _generate_title(self) -> CursesLine:
         clp = CursesLinePart(0, self._form.title.upper(), self._form.title_color, 0)
@@ -284,14 +277,14 @@ class FormPresenter(CursesWindow):
             elif isinstance(form_field, FieldButton):
                 if form_field.pressed:
                     break
+                else:
+                    idx += 1
+            elif char == curses_ascii.TAB:
+                form_field.conditional_validation(response)
                 idx += 1
             else:
-                if char == curses_ascii.TAB:
-                    form_field.conditional_validation(response)
+                form_field.validate(response)
+                if form_field.valid is True:
                     idx += 1
-                else:
-                    form_field.validate(response)
-                    if form_field.valid is True:
-                        idx += 1
 
         return self._form

@@ -25,18 +25,15 @@ def convert_percentage(dyct: dict, keys: List, pbar_width: int) -> None:
             if value == "100%":
                 dyct[key] = "COMPLETE".center(pbar_width, " ")
             else:
-                numx = floor(pbar_width / 100 * int(value[0:-1]))
-                dyct["_" + key] = value
+                numx = floor(pbar_width / 100 * int(value[:-1]))
+                dyct[f"_{key}"] = value
                 dyct[key] = ("\u2587" * numx).ljust(pbar_width)
 
 
 @functools.lru_cache(maxsize=None)
 def is_percent(string):
     """is a string a percent?"""
-    if string.endswith("%"):
-        if re.match(r"^\d{1,3}%$", string):
-            return True
-    return False
+    return bool(string.endswith("%") and re.match(r"^\d{1,3}%$", string))
 
 
 def distribute(available, weights):

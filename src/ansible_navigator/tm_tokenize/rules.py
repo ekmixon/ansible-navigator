@@ -30,10 +30,7 @@ Captures = Tuple[Tuple[int, "_Rule"], ...]
 
 
 def _split_name(s: Optional[str]) -> Tuple[str, ...]:
-    if s is None:
-        return ()
-    else:
-        return tuple(s.split())
+    return () if s is None else tuple(s.split())
 
 
 class CompiledRule(Protocol):

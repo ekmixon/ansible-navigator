@@ -57,8 +57,7 @@ class App:
         :return: The name and matching action or not
         """
         for kegex in kegexes():
-            match = kegex.kegex.match(entry)
-            if match:
+            if match := kegex.kegex.match(entry):
                 return kegex.name, ui.Action(match=match, value=entry)
         return None, None
 

@@ -46,7 +46,7 @@ class Action(App):
         empty_str = " " * (screen_w - len(plugin_str) + 1)
         heading_str = (plugin_str + empty_str).upper()
 
-        heading = (
+        return (
             (
                 CursesLinePart(
                     column=0,
@@ -56,8 +56,6 @@ class Action(App):
                 ),
             ),
         )
-
-        return heading
 
     def run(self, interaction: Interaction, app: AppPublic) -> Union[Interaction, None]:
         # pylint: disable=too-many-branches
@@ -77,30 +75,27 @@ class Action(App):
 
         plugin_name_source = self._args.entry("plugin_name").value.source
 
-        if plugin_name_source is C.USER_CLI:
-            self._plugin_name = self._args.plugin_name
-            self._plugin_type = self._args.plugin_type
-            source = plugin_name_source.value
-        elif plugin_name_source is C.NOT_SET:
-            if interaction.content:
-                try:
-                    self._plugin_name = interaction.content.showing["task_action"]
-                    self._plugin_type = self._args.entry("plugin_type").value.default
-                    source = "task action"
-                except (KeyError, AttributeError, TypeError):
-                    self._logger.info("No plugin name found in current content")
-                    return None
-            else:
+        if (
+            plugin_name_source is not C.USER_CLI
+            and plugin_name_source is C.NOT_SET
+            and interaction.content
+        ):
+            try:
+                self._plugin_name = interaction.content.showing["task_action"]
+                self._plugin_type = self._args.entry("plugin_type").value.default
+                source = "task action"
+            except (KeyError, AttributeError, TypeError):
+                self._logger.info("No plugin name found in current content")
                 return None
-        elif plugin_name_source is not C.NOT_SET:
+        elif (
+            plugin_name_source is not C.USER_CLI
+            and plugin_name_source is C.NOT_SET
+        ):
+            return None
+        else:
             self._plugin_name = self._args.plugin_name
             self._plugin_type = self._args.plugin_type
             source = plugin_name_source.value
-        else:
-            self._logger.info("No plugin provided or found, not showing content")
-            self._prepare_to_exit(interaction)
-            return None
-
         self._logger.debug("Plugin name used from %s: %s", source, self._plugin_name)
         self._logger.debug("Plugin type used from %s: %s", source, self._plugin_type)
 
@@ -126,8 +121,7 @@ class Action(App):
         self._plugin_name = self._args.plugin_name
         self._plugin_type = self._args.plugin_type
         self._logger.debug("doc requested in stdout mode")
-        response = self._run_runner()
-        if response:
+        if response := self._run_runner():
             _, _, ret_code = response
             return ret_code
         return None
@@ -158,19 +152,20 @@ class Action(App):
         }
 
         if isinstance(self._args.execution_environment_volume_mounts, list):
-            kwargs.update(
-                {"container_volume_mounts": self._args.execution_environment_volume_mounts}
-            )
+            kwargs[
+                "container_volume_mounts"
+            ] = self._args.execution_environment_volume_mounts
+
 
         if isinstance(self._args.container_options, list):
-            kwargs.update({"container_options": self._args.container_options})
+            kwargs["container_options"] = self._args.container_options
 
         if self._args.mode == "interactive":
             if isinstance(self._args.playbook, str):
                 playbook_dir = os.path.dirname(self._args.playbook)
             else:
                 playbook_dir = os.getcwd()
-            kwargs.update({"host_cwd": playbook_dir})
+            kwargs["host_cwd"] = playbook_dir
 
             self._runner = AnsibleDoc(**kwargs)
 
@@ -187,10 +182,9 @@ class Action(App):
                     self._plugin_name,
                     plugin_doc_err,
                 )
-            plugin_doc_response = self._extract_plugin_doc(plugin_doc, plugin_doc_err)
-            return plugin_doc_response
+            return self._extract_plugin_doc(plugin_doc, plugin_doc_err)
         else:
-            kwargs.update({"host_cwd": os.getcwd()})
+            kwargs["host_cwd"] = os.getcwd()
             if self._args.execution_environment:
                 ansible_doc_path = "ansible-doc"
             else:
@@ -214,11 +208,10 @@ class Action(App):
             if isinstance(self._args.cmdline, list):
                 pass_through_arg.extend(self._args.cmdline)
 
-            kwargs.update({"cmdline": pass_through_arg})
+            kwargs["cmdline"] = pass_through_arg
 
             self._runner = Command(executable_cmd=ansible_doc_path, **kwargs)
-            stdout_return = self._runner.run()
-            return stdout_return
+            return self._runner.run()
 
     def _extract_plugin_doc(
         self, out: Union[Dict[Any, Any], str], err: Union[Dict[Any, Any], str]
@@ -247,15 +240,7 @@ class Action(App):
                 else:
                     plugin_doc = json_loaded[self._plugin_name]
 
-            if isinstance(err, dict):
-                plugin_doc["warnings"] = err
-            else:
-                plugin_doc["warnings"] = err.splitlines()
-
+            plugin_doc["warnings"] = err if isinstance(err, dict) else err.splitlines()
         elif err:
-            if isinstance(err, dict):
-                plugin_doc[error_key_name] = err
-            else:
-                plugin_doc[error_key_name] = err.splitlines()
-
+            plugin_doc[error_key_name] = err if isinstance(err, dict) else err.splitlines()
         return plugin_doc

@@ -129,7 +129,7 @@ class CmdParser:
         separator_match = re.search(separator, content)
         if not separator_match:
             return content, "", ""
-        matched_separator = separator_match.group(0)
+        matched_separator = separator_match[0]
         parts = re.split(matched_separator, content, 1)
         return parts[0], matched_separator, parts[1]
 
@@ -218,7 +218,7 @@ class PythonPackages(CmdParser):
         pre = Command(id="pip_freeze", command="python3 -m pip freeze", parse=self.parse_freeze)
         run_command(pre)
         pre.parse(pre)
-        pkgs = " ".join(pkg for pkg in pre.details[0])
+        pkgs = " ".join(pre.details[0])
         return [
             Command(id="python_packages", command=f"python3 -m pip show {pkgs}", parse=self.parse)
         ]
@@ -228,10 +228,7 @@ class PythonPackages(CmdParser):
         parsed = self.splitter(command.stdout.splitlines(), ":")
         for pkg in parsed:
             for entry in ["required-by", "requires"]:
-                if pkg[entry]:
-                    pkg[entry] = [p.strip() for p in pkg[entry].split(",")]
-                else:
-                    pkg[entry] = []
+                pkg[entry] = [p.strip() for p in pkg[entry].split(",")] if pkg[entry] else []
         command.details = parsed
 
     def parse_freeze(self, command):
@@ -308,8 +305,13 @@ class SystemPackages(CmdParser):
 
 def main():
     """start here"""
-    response = {"errors": []}
-    response["python_version"] = {"details": {"version": " ".join(sys.version.splitlines())}}
+    response = {
+        "errors": [],
+        "python_version": {
+            "details": {"version": " ".join(sys.version.splitlines())}
+        },
+    }
+
     try:
         command_runner = CommandRunner()
         commands = [

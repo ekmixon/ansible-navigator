@@ -68,7 +68,7 @@ def color_menu(_colno: int, colname: str, entry: Dict[str, Any]) -> Tuple[int, i
     if "__play_name" in entry:
         if not colval:
             color = 8
-        elif colname in ["__task_count", "__play_name", "__progress"]:
+        elif colname in {"__task_count", "__play_name", "__progress"}:
             failures = entry["__failed"] + entry["__unreachable"]
             if failures:
                 color = 9
@@ -87,13 +87,16 @@ def color_menu(_colno: int, colname: str, entry: Dict[str, Any]) -> Tuple[int, i
     elif "task" in entry:
         if entry["__result"].lower() == "__in_progress":
             color = get_color(entry["__result"])
-        elif colname in ["__result", "__host", "__number", "__task", "__task_action"]:
+        elif colname in {
+            "__result",
+            "__host",
+            "__number",
+            "__task",
+            "__task_action",
+        }:
             color = get_color(entry["__result"])
         elif colname == "__changed":
-            if colval is True:
-                color = 11
-            else:
-                color = get_color(entry["__result"])
+            color = 11 if colval is True else get_color(entry["__result"])
         elif colname == "__duration":
             color = 12
 
@@ -108,48 +111,55 @@ def content_heading(obj: Any, screen_w: int) -> Union[CursesLines, None]:
     :return: The heading
     """
 
-    if isinstance(obj, dict) and "task" in obj:
-        heading = []
-        detail = f"PLAY [{obj['play']}:{obj['__number']}] "
-        stars = "*" * (screen_w - len(detail))
-        heading.append(
-            tuple([CursesLinePart(column=0, string=detail + stars, color=0, decoration=0)])
+    if not isinstance(obj, dict) or "task" not in obj:
+        return None
+    detail = f"PLAY [{obj['play']}:{obj['__number']}] "
+    stars = "*" * (screen_w - len(detail))
+    heading = [
+        (
+            CursesLinePart(
+                column=0, string=detail + stars, color=0, decoration=0
+            ),
         )
+    ]
 
-        detail = f"TASK [{obj['task']}] "
-        stars = "*" * (screen_w - len(detail))
-        heading.append(
-            tuple([CursesLinePart(column=0, string=detail + stars, color=0, decoration=0)])
+    detail = f"TASK [{obj['task']}] "
+    stars = "*" * (screen_w - len(detail))
+    heading.append(
+        (
+            CursesLinePart(
+                column=0, string=detail + stars, color=0, decoration=0
+            ),
         )
+    )
 
-        if obj["__changed"] is True:
-            color = 11
-            res = "CHANGED"
-        else:
-            color = next((x[1] for x in RESULT_TO_COLOR if re.match(x[0], obj["__result"])), 0)
-            res = obj["__result"]
 
-        if "res" in obj and "msg" in obj["res"]:
-            msg = str(obj["res"]["msg"]).replace("\n", " ").replace("\r", "")
-        else:
-            msg = ""
+    if obj["__changed"] is True:
+        color = 11
+        res = "CHANGED"
+    else:
+        color = next((x[1] for x in RESULT_TO_COLOR if re.match(x[0], obj["__result"])), 0)
+        res = obj["__result"]
 
-        string = f"{res}: [{obj['__host']}] {msg}"
-        string = string + (" " * (screen_w - len(string) + 1))
-        heading.append(
-            tuple(
-                [
-                    CursesLinePart(
-                        column=0,
-                        string=string,
-                        color=color,
-                        decoration=curses.A_UNDERLINE,
-                    )
-                ]
-            )
+    if "res" in obj and "msg" in obj["res"]:
+        msg = str(obj["res"]["msg"]).replace("\n", " ").replace("\r", "")
+    else:
+        msg = ""
+
+    string = f"{res}: [{obj['__host']}] {msg}"
+    string = string + (" " * (screen_w - len(string) + 1))
+    heading.append(
+        (
+            CursesLinePart(
+                column=0,
+                string=string,
+                color=color,
+                decoration=curses.A_UNDERLINE,
+            ),
         )
-        return tuple(heading)
-    return None
+    )
+
+    return tuple(heading)
 
 
 def filter_content_keys(obj: Dict[Any, Any]) -> Dict[Any, Any]:
@@ -293,21 +303,20 @@ class Action(App):
             self._take_step()
 
             if not self.steps:
-                if not self._runner_finished:
-                    self._logger.error("Can not step back while playbook in progress, :q! to exit")
-                    self.steps.append(self._plays)
-                else:
+                if self._runner_finished:
                     self._logger.debug(
                         "No steps remaining for '%s' returning to calling app", self._name
                     )
                     break
 
+                else:
+                    self._logger.error("Can not step back while playbook in progress, :q! to exit")
+                    self.steps.append(self._plays)
             if self.steps.current.name == "quit":
                 if self._args.app == "replay":
                     self._prepare_to_exit(interaction)
                     return self.steps.current
-                done = self._prepare_to_quit(self.steps.current)
-                if done:
+                if done := self._prepare_to_quit(self.steps.current):
                     self._prepare_to_exit(interaction)
                     return self.steps.current
                 self.steps.back_one()
@@ -342,8 +351,7 @@ class Action(App):
             if populated_form["cancelled"]:
                 return False
 
-            new_cmd = ["run"]
-            new_cmd.append(populated_form["fields"]["playbook"]["value"])
+            new_cmd = ["run", populated_form["fields"]["playbook"]["value"]]
             for field in populated_form["fields"].values():
                 if field["name"].startswith("inv_") and field["value"] != "":
                     new_cmd.extend(["-i", field["value"]])
@@ -401,7 +409,7 @@ class Action(App):
                     self._interaction.ui.update_status(data["status"], data["status_color"])
                     self.stdout = stdout
                 else:
-                    for line in data["stdout"]:
+                    for line in stdout:
                         if self._args.display_color is True:
                             print(line)
                         else:
@@ -441,19 +449,14 @@ class Action(App):
         form_dict["fields"].append(form_field)
         form = dict_to_form(form_dict)
         self._interaction.ui.show(form)
-        populated_form = form_to_dict(form, key_on_name=True)
-        return populated_form
+        return form_to_dict(form, key_on_name=True)
 
     def _prompt_for_playbook(self) -> Dict[Any, Any]:
         """prepopulate a form to confirm the playbook details"""
 
         self._logger.debug("Inventory/Playbook not set, provided, or valid, prompting")
 
-        if isinstance(self._args.playbook, str):
-            playbook = self._args.playbook
-        else:
-            playbook = ""
-
+        playbook = self._args.playbook if isinstance(self._args.playbook, str) else ""
         if isinstance(self._args.inventory, list):
             inventory = self._args.inventory
         else:
@@ -498,8 +501,7 @@ class Action(App):
         form_dict["fields"].append(form_field)
         form = dict_to_form(form_dict)
         self._interaction.ui.show(form)
-        populated_form = form_to_dict(form, key_on_name=True)
-        return populated_form
+        return form_to_dict(form, key_on_name=True)
 
     def _take_step(self) -> None:
         """run the current step on the stack"""
@@ -546,11 +548,7 @@ class Action(App):
         """spin up runner"""
         executable_cmd: Optional[str]
 
-        if self.mode == "stdout_w_artifact":
-            mode = "interactive"
-        else:
-            mode = self.mode
-
+        mode = "interactive" if self.mode == "stdout_w_artifact" else self.mode
         if isinstance(self._args.set_environment_variable, dict):
             set_envvars = {**self._args.set_environment_variable}
         else:
@@ -574,15 +572,16 @@ class Action(App):
         }
 
         if isinstance(self._args.playbook, str):
-            kwargs.update({"playbook": self._args.playbook})
+            kwargs["playbook"] = self._args.playbook
 
         if isinstance(self._args.execution_environment_volume_mounts, list):
-            kwargs.update(
-                {"container_volume_mounts": self._args.execution_environment_volume_mounts}
-            )
+            kwargs[
+                "container_volume_mounts"
+            ] = self._args.execution_environment_volume_mounts
+
 
         if isinstance(self._args.container_options, list):
-            kwargs.update({"container_options": self._args.container_options})
+            kwargs["container_options"] = self._args.container_options
 
         if self._args.execution_environment:
             executable_cmd = "ansible-playbook"
@@ -598,7 +597,7 @@ class Action(App):
             pass_through_arg.append("--help")
         if isinstance(self._args.cmdline, list):
             pass_through_arg.extend(self._args.cmdline)
-        kwargs.update({"cmdline": pass_through_arg})
+        kwargs["cmdline"] = pass_through_arg
 
         self.runner = CommandAsync(executable_cmd=executable_cmd, queue=self._queue, **kwargs)
         self.runner.run()
@@ -673,12 +672,18 @@ class Action(App):
                         self._logger.debug(msg)
                         task["__duration"] = 0
 
-                    task_id = None
-                    for idx, play_task in enumerate(self._plays.value[play_id]["tasks"]):
-                        if task["task_uuid"] == play_task["task_uuid"]:
-                            if task["host"] == play_task["host"]:
-                                task_id = idx
-                                break
+                    task_id = next(
+                        (
+                            idx
+                            for idx, play_task in enumerate(
+                                self._plays.value[play_id]["tasks"]
+                            )
+                            if task["task_uuid"] == play_task["task_uuid"]
+                            and task["host"] == play_task["host"]
+                        ),
+                        None,
+                    )
+
                     if task_id is not None:
                         self._plays.value[play_id]["tasks"][task_id].update(task)
 
@@ -709,12 +714,11 @@ class Action(App):
             )
             task_count = len(play["tasks"])
             self._plays.value[idx]["__task_count"] = task_count
-            completed = task_count - self._plays.value[idx]["__in_progress"]
-            if completed:
+            if completed := task_count - self._plays.value[idx]["__in_progress"]:
                 new = floor((completed / task_count * 100))
                 current = self._plays.value[idx].get("__pcomplete", 0)
                 self._plays.value[idx]["__pcomplete"] = max(new, current)
-                self._plays.value[idx]["__progress"] = str(max(new, current)) + "%"
+                self._plays.value[idx]["__progress"] = f"{str(max(new, current))}%"
             else:
                 self._plays.value[idx]["__progress"] = "0%"
 
@@ -747,14 +751,13 @@ class Action(App):
         :rtype: Step
         """
         value = self.steps.current.selected["tasks"]
-        step = Step(
+        return Step(
             name="task_list",
             tipe="menu",
             columns=self._task_list_columns,
             select_func=self._task_from_task_list,
             value=value,
         )
-        return step
 
     def _task_from_task_list(self) -> Step:
         """generate task content for the selected task
@@ -764,8 +767,7 @@ class Action(App):
         """
         value = self.steps.current.value
         index = self.steps.current.index
-        step = Step(name="task", tipe="content", index=index, value=value)
-        return step
+        return Step(name="task", tipe="content", index=index, value=value)
 
     def update(self) -> None:
         """Drain the queue, set the status and write the artifact if needed"""
@@ -791,19 +793,20 @@ class Action(App):
         status = ""
         status_color = 0
         if self.runner.status:
-            if self.runner and self.runner.finished and self.runner.status:
+            if self.runner and self.runner.finished:
                 status = self.runner.status
-                if self.runner.status == "failed":
-                    status_color = 9
-                else:
-                    status_color = self._msg_from_plays[1] or 10
+                status_color = (
+                    9
+                    if self.runner.status == "failed"
+                    else self._msg_from_plays[1] or 10
+                )
+
+            elif self._msg_from_plays[0] is not None and self._msg_from_plays[1] is not None:
+                status = self._msg_from_plays[0]
+                status_color = self._msg_from_plays[1]
             else:
-                if self._msg_from_plays[0] is not None and self._msg_from_plays[1] is not None:
-                    status = self._msg_from_plays[0]
-                    status_color = self._msg_from_plays[1]
-                else:
-                    status = self.runner.status
-                    status_color = 10
+                status = self.runner.status
+                status_color = 10
         return status, status_color
 
     def _set_status(self) -> None:

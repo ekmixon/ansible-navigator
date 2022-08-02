@@ -56,8 +56,7 @@ class Action(App):
         :returns: The return code or None
         """
         self._logger.debug("exec requested in stdout mode")
-        response = self._run_runner()
-        if response:
+        if response := self._run_runner():
             _, _, ret_code = response
             return ret_code
         return None
